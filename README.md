@@ -1,8 +1,5 @@
-<h1 align="center">luci-app-telemt v3.0</h1>
-
-<p align="center">
-  A clean, fast, and feature-rich LuCI web interface for the <a href="https://github.com/telemt/telemt">Telemt MTProto Proxy</a> on OpenWrt routers.
-</p>
+cat > README.md <<'EOF'
+# luci-app-telemt
 
 <table width="100%">
   <tr>
@@ -11,58 +8,65 @@
   </tr>
   <tr>
     <td valign="top">
-      <b>✨ Особенности веб-интерфейса OpenWRT LuCI для telemt Telegram MTProxy</b>
+      Веб-интерфейс (LuCI) для управления MTProto-прокси <a href="https://github.com/telemt/telemt">Telemt</a> на маршрутизаторах OpenWrt. 
+      Пакет работает как генератор файла конфигурации <code>telemt.toml</code> и управляет жизненным циклом демона через подсистему <code>procd</code>.
+      <br><br>
+      <b>Требования:</b>
       <ul>
-        <li><b>Автоопределение IP:</b> Мгновенное получение внешнего WAN IP без зависаний админки роутера.</li>
-        <li><b>Управление пользователями:</b> Удобное добавление клиентов, автогенерация 32-hex секретов и готовых <code>tg://</code> ссылок.</li>
-        <li><b>Продвинутая маршрутизация:</b> SOCKS5 апстрим для обхода жестких DPI (ТСПУ) и поддержка IPv6.</li>
-        <li><b>Темная тема:</b> Полная совместимость с темами вроде Argon (OpenWrt 18.06 - 24.10).</li>
+        <li>ОС: OpenWrt 18.06 — 24.10</li>
+        <li>Зависимости: <code>luci-base</code>, <code>luci-compat</code>, <code>ca-bundle</code></li>
+        <li>Движок: бинарный файл <code>telemt</code> <b>версии 3.0.0 и выше</b>.</li>
       </ul>
-      <b>🚀 Telemt 3: Middle-End Proxy</b><br>
-      Новая версия движка поддерживает ME Proxy, что дает:
+      <b>Реализация функций движка (~90%)</b><br>
+      Интерфейс покрывает подавляющее большинство параметров оригинального конфигурационного файла. Поддерживаемые секции TOML:
       <ul>
-        <li>Функциональные медиа (включая быструю загрузку картинок и видео через CDN/DC=203).</li>
-        <li>Поддержку <b>Ad-tag</b> — показ спонсорского канала и сбор статистики через официального бота.</li>
-        <li>Новый подход к безопасности и асинхронности.</li>
+        <li><code>[general]</code>: Выбор режимов (tls, secure, classic), включение Middle-End Proxy (<code>use_middle_proxy</code>), <code>stun_probing</code>, поддержка IPv6 (<code>prefer_ipv6</code>) и спонсорский <code>ad_tag</code>.</li>
+        <li><code>[server]</code>: Назначение порта, слушатели (IPv4/IPv6), форсирование <code>announce_ip</code>.</li>
+        <li><code>[timeouts]</code>: Пользовательские значения для <code>client_handshake</code>, <code>tg_connect</code>, <code>client_keepalive</code> и <code>client_ack</code>.</li>
+        <li><code>[censorship]</code>: Указание <code>tls_domain</code> для маскировки FakeTLS.</li>
+        <li><code>[access]</code>: Управление таблицей <code>access.users</code>, настройка индивидуальных <code>user_max_tcp_conns</code> и <code>user_data_quota</code>.</li>
+        <li><code>[dc_overrides]</code>: Автоматическая маршрутизация медиа/CDN (DC 203), если ME-режим отключен.</li>
+        <li><code>[upstreams]</code>: Выбор между <code>direct</code> и <code>socks5</code> (включая авторизацию по логину/паролю).</li>
       </ul>
-      <b>⚙️ Требования для работы ME Proxy:</b>
-      <ul>
-        <li>Бинарный файл <code>telemt</code> версии ≥ 3.0.0.</li>
-        <li>Публичный IP на интерфейсе для исходящих соединений <b>ИЛИ</b> использование NAT 1:1 со включенным STUN-пробингом.</li>
-      </ul>
-      <i>💡 Если условия не выполняются, отключите опцию "Use ME Proxy" в настройках интерфейса. В противном случае прокси отключит его по таймауту, но это сильно замедлит запуск сервиса. LuCI автоматически настроит <code>dc_overrides</code> в конфиге для работы медиа в классическом режиме.</i>
     </td>
     <td valign="top">
-      <b>✨ Web Interface Features (LuCI)</b>
+      A LuCI web interface for managing the <a href="https://github.com/telemt/telemt">Telemt</a> MTProto proxy on OpenWrt routers. 
+      This package acts as a configuration generator for <code>telemt.toml</code> and manages the daemon's lifecycle via <code>procd</code>.
+      <br><br>
+      <b>Requirements:</b>
       <ul>
-        <li><b>Smart IP Fetching:</b> Instantly fetches your external WAN IP without freezing the router interface.</li>
-        <li><b>Multi-User Management:</b> Easily add users, auto-generate secure 32-hex secrets, and get ready-to-use <code>tg://</code> proxy links.</li>
-        <li><b>Advanced Routing:</b> SOCKS5 upstream routing for bypassing strict DPIs and IPv6 fallback support.</li>
-        <li><b>Dark Mode Ready:</b> Fully compatible with popular LuCI themes like Argon (OpenWrt 18.06 - 24.10).</li>
+        <li>OS: OpenWrt 18.06 — 24.10</li>
+        <li>Dependencies: <code>luci-base</code>, <code>luci-compat</code>, <code>ca-bundle</code></li>
+        <li>Engine: <code>telemt</code> binary <b>version 3.0.0 or higher</b>.</li>
       </ul>
-      <b>🚀 Telemt 3: Middle-End Proxy</b><br>
-      The new core version supports ME Proxy, which means:
+      <b>Engine Features Implementation (~90%)</b><br>
+      The GUI covers the vast majority of parameters from the original TOML configuration. Supported sections include:
       <ul>
-        <li>Functional media (including fast image/video loading via CDN/DC=203).</li>
-        <li><b>Ad-tag</b> support to promote a sponsored channel and collect stats.</li>
-        <li>New approach to security and asynchronicity.</li>
+        <li><code>[general]</code>: Protocol modes (tls, secure, classic), Middle-End Proxy toggle (<code>use_middle_proxy</code>), <code>stun_probing</code>, IPv6 support (<code>prefer_ipv6</code>), and <code>ad_tag</code>.</li>
+        <li><code>[server]</code>: Port binding, IPv4/IPv6 listeners, and <code>announce_ip</code>.</li>
+        <li><code>[timeouts]</code>: Custom values for <code>client_handshake</code>, <code>tg_connect</code>, <code>client_keepalive</code>, and <code>client_ack</code>.</li>
+        <li><code>[censorship]</code>: Specifying the <code>tls_domain</code> for FakeTLS masking.</li>
+        <li><code>[access]</code>: Managing <code>access.users</code>, defining individual <code>user_max_tcp_conns</code>, and <code>user_data_quota</code>.</li>
+        <li><code>[dc_overrides]</code>: Automatic media/CDN (DC 203) routing if ME mode is disabled.</li>
+        <li><code>[upstreams]</code>: Toggling between <code>direct</code> and <code>socks5</code> routing (including user/pass authentication).</li>
       </ul>
-      <b>⚙️ Requirements for ME Proxy:</b>
-      <ul>
-        <li><code>telemt</code> binary version ≥ 3.0.0.</li>
-        <li>A public IP assigned to the outbound network interface <b>OR</b> using 1:1 NAT with STUN probing enabled.</li>
-      </ul>
-      <i>💡 If conditions aren't met, disable the "Use ME Proxy" option in the GUI. Otherwise, it will be disabled automatically after a timeout, significantly increasing startup time. LuCI handles <code>dc_overrides</code> automatically for classic mode media routing.</i>
     </td>
   </tr>
 </table>
 
-## 📦 Installation / Установка
+## Installation / Установка (OpenWrt CLI)
 
-1. Go to the [Releases](../../releases) page / Перейдите в раздел Релизов.
-2. Download the `luci-app-telemt` IPK and the correct `telemt` binary IPK for your router's CPU architecture (e.g., `aarch64_generic`).
-3. Upload them to your router (e.g., to `/tmp/`) and install via SSH:
-   ```bash
-   opkg update
-   opkg install /tmp/telemt_*.ipk
-   opkg install /tmp/luci-app-telemt_*.ipk
+You can download and install the pre-compiled packages directly to your router via SSH. 
+Change `aarch64_generic` to your router's architecture if necessary.
+
+```bash
+opkg update
+opkg install unzip
+# 1. Download the rollup archived package
+cd /tmp
+wget [https://github.com/Medvedolog/luci-app-telemt/releases/download/v3.0.0/luci-app-telemt_3.0.0-3_all.ipk](https://github.com/Medvedolog/luci-app-telemt/releases/download/v3.0.0/luci-app-telemt_3.0.0-3_all.ipk)
+# 2. Unzip the archive
+unzip Owrt_telemt_3.0.0_aarch64_cortex-a53.zip
+# 3. Install packages
+opkg install /tmp/telemt_*.ipk
+opkg install /tmp/luci-app-telemt_*.ipk
