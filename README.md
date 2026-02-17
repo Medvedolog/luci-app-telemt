@@ -1,5 +1,5 @@
 
-# luci-app-telemt
+# luci-app-telemt - OpenWRT WEB interface
 
 <table width="100%">
   <tr>
@@ -20,11 +20,11 @@
       <b>Реализация функций движка (~90%)</b><br>
       Интерфейс покрывает подавляющее большинство параметров оригинального конфигурационного файла. Поддерживаемые секции TOML:
       <ul>
-        <li><code>[general]</code>: Выбор режимов (tls, secure, classic), включение Middle-End Proxy (<code>use_middle_proxy</code>), <code>stun_probing</code>, поддержка IPv6 (<code>prefer_ipv6</code>) и спонсорский <code>ad_tag</code>.</li>
-        <li><code>[server]</code>: Назначение порта, слушатели (IPv4/IPv6), форсирование <code>announce_ip</code>.</li>
+        <li><code>[general]</code>: Выбор режимов (tls, secure, classic), включение Middle-End Proxy (<code>use_middle_proxy</code>), <code>stun_probing</code>, поддержка IPv6 (<code>prefer_ipv6</code>) и спонсорского <code>ad_tag</code>.</li>
+        <li><code>[server]</code>: Назначение порта, протокола (IPv4/IPv6), форсирование <code>announce_ip</code>.</li>
         <li><code>[timeouts]</code>: Пользовательские значения для <code>client_handshake</code>, <code>tg_connect</code>, <code>client_keepalive</code> и <code>client_ack</code>.</li>
-        <li><code>[censorship]</code>: Указание <code>tls_domain</code> для маскировки FakeTLS.</li>
-        <li><code>[access]</code>: Управление таблицей <code>access.users</code>, настройка индивидуальных <code>user_max_tcp_conns</code> и <code>user_data_quota</code>.</li>
+        <li><code>[censorship]</code>: Выбор домена <code>tls_domain</code> для маскировки FakeTLS.</li>
+        <li><code>[access]</code>: Управление списком пользователей <code>access.users</code>, настройка индивидуальных парметров <code>user_max_tcp_conns</code> и <code>user_data_quota</code>.</li>
         <li><code>[dc_overrides]</code>: Автоматическая маршрутизация медиа/CDN (DC 203), если ME-режим отключен.</li>
         <li><code>[upstreams]</code>: Выбор между <code>direct</code> и <code>socks5</code> (включая авторизацию по логину/паролю).</li>
       </ul>
