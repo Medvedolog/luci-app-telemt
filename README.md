@@ -64,7 +64,7 @@ opkg update
 opkg install unzip
 # 1. Download the rollup archived package
 cd /tmp
-wget [https://github.com/Medvedolog/luci-app-telemt/releases/download/v3.0.0/luci-app-telemt_3.0.0-3_all.ipk](https://github.com/Medvedolog/luci-app-telemt/releases/download/v3.0.0/luci-app-telemt_3.0.0-3_all.ipk)
+wget https://github.com/Medvedolog/luci-app-telemt/releases/download/v3.0.0/luci-app-telemt_3.0.0-3_all.ipk
 # 2. Unzip the archive
 unzip Owrt_telemt_3.0.0_aarch64_cortex-a53.zip
 # 3. Install packages
