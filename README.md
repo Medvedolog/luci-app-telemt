@@ -1,5 +1,10 @@
 # luci-app-telemt - OpenWRT WEB interface
 
+
+[📸 **Посмотреть скриншоты интерфейса / View UI Screenshots**](./screenshots/)
+
+<table width="100%">
+
 <table width="100%">
   <tr>
     <th width="50%">🇷🇺 Русский</th>
