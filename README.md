@@ -16,7 +16,7 @@
       <ul>
         <li><b>ОС:</b> OpenWrt 21.02 — 25.xx (полная поддержка VDOM)</li>
         <li><b>Зависимости:</b> <code>luci-base</code>, <code>luci-compat</code>, <code>ca-bundle</code>, <code>qrencode</code> (для генерации QR-кодов)</li>
-        <li><b>Движок:</b> бинарный файл <code>telemt</code> <b>версии 3.0.15 или 3.1.0 LTS</b>.</li>
+        <li><b>Движок:</b> бинарный файл <code>telemt</code> <b>версии 3.0.15 или 3.1.0 LTS</b>.</li>[https://github.com/Medvedolog/telemt/releases]
       </ul>
       <b>Ключевые возможности:</b>
       <ul>
@@ -43,7 +43,7 @@
       <ul>
         <li><b>OS:</b> OpenWrt 21.02 — 25.xx (full VDOM compatibility)</li>
         <li><b>Dependencies:</b> <code>luci-base</code>, <code>luci-compat</code>, <code>ca-bundle</code>, <code>qrencode</code> (for QR generation)</li>
-        <li><b>Engine:</b> <code>telemt</code> binary <b>version 3.0.15 or 3.1.0 LTS</b>.</li>
+        <li><b>Engine:</b> <code>telemt</code> binary <b>version 3.0.15 or 3.1.0 LTS</b>.</li>[https://github.com/Medvedolog/telemt/releases]
       </ul>
       <b>Key Features:</b>
       <ul>
