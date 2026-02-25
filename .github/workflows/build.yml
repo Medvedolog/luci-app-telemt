@@ -1,13 +1,17 @@
-name: Build OpenWrt Packages
+name: Build and Release OpenWrt Packages
 
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*' # Срабатывает только при создании тега (например, v3.1.0-4)
   workflow_dispatch:
 
+# ВАЖНО: Разрешаем экшену запись в репозиторий, чтобы он мог создать релиз
+permissions:
+  contents: write
+
 jobs:
-  build:
+  build-and-release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -24,6 +28,7 @@ jobs:
           nfpm pkg --packager ipk
           nfpm pkg --packager apk
 
+      # Этот шаг загружает артефакты (оставляем для истории сборок)
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -31,3 +36,13 @@ jobs:
           path: |
             *.ipk
             *.apk
+
+      # МАГИЯ ЗДЕСЬ: Создаем релиз и прикрепляем файлы
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') # Защита: делаем релиз только если запущено по тегу
+        with:
+          files: |
+            *.ipk
+            *.apk
+          generate_release_notes: true # Автоматически добавит список твоих коммитов в описание релиза
