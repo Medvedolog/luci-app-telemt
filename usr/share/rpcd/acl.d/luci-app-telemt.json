@@ -1,0 +1,11 @@
+{
+  "luci-app-telemt": {
+    "description": "Grant access to telemt configuration and status",
+    "read": {
+      "uci": [ "telemt" ],
+      "file": { "/tmp/telemt_stats.txt": [ "read" ], "/var/etc/telemt.version": [ "read" ] }
+    },
+    "write": { "uci": [ "telemt" ] }
+  }
+}
+

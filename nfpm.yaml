@@ -1,0 +1,30 @@
+# ==============================================================================
+# nFPM Build Configuration
+# Defines package metadata, architecture, and dependencies for IPK/APK builds.
+# ==============================================================================
+name: "luci-app-telemt"
+platform: "linux"
+version: "3.1.0-3"
+section: "net"
+maintainer: "Medvedolog <Medvedolog@github.com>"
+description: |
+  Ultimate LuCI WebUI for Telemt MTProxy (v3.1.0-3 PreLTS).
+  Features: Native DOM Strategy, VDOM Compatibility for OpenWrt 21-25.
+depends:
+  - libc
+  - luci-base
+  - luci-compat
+  - qrencode
+  - ca-bundle
+contents:
+  - src: ./usr
+    dst: /usr
+scripts:
+  postinstall: ./scripts/postinst
+  preremove: ./scripts/prerm
+  postremove: ./scripts/postrm
+apk:
+  arch: "noarch"
+ipk:
+  arch: "all"
+

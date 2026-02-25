@@ -1,0 +1,15 @@
+#!/bin/sh
+# ==============================================================================
+# Post-Removal Script
+# Cleans up temporary caches, statistics files, and dynamic configurations.
+# ==============================================================================
+echo "[*] Removing configuration and cache files..."
+rm -rf /tmp/luci-modulecache/
+rm -f /tmp/luci-indexcache
+rm -f /var/etc/telemt.toml
+rm -f /var/etc/telemt.version
+rm -f /tmp/telemt_stats.txt
+rm -f /etc/init.d/telemt
+echo "[*] Uninstallation complete."
+exit 0
+

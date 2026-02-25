@@ -1,0 +1,51 @@
+#!/bin/sh
+# ==============================================================================
+# Post-Installation Script
+# Neutralizes old standalone configs, sets up LuCI default paths, and reloads RPC.
+# ==============================================================================
+[ "${IPKG_NO_SCRIPT}" = "1" ] && exit 0
+
+echo "======================================================================"
+echo " Configuring luci-app-telemt v3.1.0-3 (PreLTS) "
+echo "======================================================================"
+
+echo "[*] Checking for running standalone telemt processes..."
+if pidof telemt >/dev/null 2>&1; then
+    /etc/init.d/telemt stop 2>/dev/null || true
+    killall -9 telemt 2>/dev/null || true
+fi
+
+echo "[*] Checking for standalone configuration folder (/etc/telemt)..."
+if [ -d "/etc/telemt" ]; then
+    mv /etc/telemt /etc/telemt.disabled_by_luci 2>/dev/null || true
+fi
+
+echo "[*] Installing smart init script and enabling service..."
+cp -f /usr/share/telemt-luci/init_script /etc/init.d/telemt
+chmod +x /etc/init.d/telemt
+
+/etc/init.d/telemt enable 2>/dev/null || true
+
+echo "[*] Verifying metrics port configuration..."
+if [ "$(uci -q get telemt.general.metrics_port)" = "9090" ]; then
+    uci set telemt.general.metrics_port='9091'
+    uci commit telemt 2>/dev/null || true
+fi
+
+echo "[*] Configuring UCI defaults..."
+if [ ! -f "/etc/config/telemt" ]; then
+    cp /usr/share/telemt-luci/default_config /etc/config/telemt
+    chmod 600 /etc/config/telemt
+    /sbin/reload_config 2>/dev/null || true
+    uci commit telemt 2>/dev/null || true
+fi
+
+echo "[*] Cleaning up LuCI cache..."
+rm -f /usr/share/luci/menu.d/luci-app-telemt.json
+rm -rf /tmp/luci-modulecache/
+rm -f /tmp/luci-indexcache
+
+echo "[*] Reloading RPCD..."
+/etc/init.d/rpcd reload 2>/dev/null || true
+exit 0
+
