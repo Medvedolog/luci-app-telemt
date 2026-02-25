@@ -1,5 +1,5 @@
-# luci-app-telemt - OpenWrt Web Interface
-
+# luci-app-telemt - OpenWrt Web Interface for telemt MTProxy service
+# Веб-интерфейс (LuCI) для управления MTProto прокси службой telemt
 
 
 <table width="100%">
