@@ -1,12 +1,12 @@
 -- ==============================================================================
 -- Telemt CBI Model (Configuration Binding Interface)
--- Version: 3.1.0-5 (PreLTS)
+-- Version: 3.1.0-3 (PreLTS)
 -- 
 -- Architecture:
 -- - Map: Connects to '/etc/config/telemt' and automatically handles I/O.
 -- - AJAX Endpoints: Intercepts POST/GET requests for live metrics, logs, and FW status.
--- - DOM Mutation (Client-Side): Universal OpenWrt 21-25 compatibility using 
---   Feature Detection, ASCII-only Graceful Degradation and strict color enforcement.
+-- - DOM Mutation: Injects raw JS/CSS to dynamically handle FakeTLS links, CSV imports,
+--   and universally patch OpenWrt 24/25 VDOM table rendering using native components.
 -- ==============================================================================
 
 local sys = require "luci.sys"
@@ -268,7 +268,7 @@ end
 -- ==============================================================================
 -- UI FORM INITIALIZATION & TAB BINDINGS
 -- ==============================================================================
-m = Map("telemt", "Telegram Proxy (MTProto)", [[Multi-user proxy server based on <a href="https://github.com/telemt/telemt" target="_blank" style="text-decoration:none; color:inherit; font-weight:bold; border-bottom: 1px dotted currentColor;">telemt</a>.<br><b>LuCI App Version: <a href="https://github.com/Medvedolog/luci-app-telemt" target="_blank" style="text-decoration:none; color:inherit; border-bottom: 1px dotted currentColor;">3.1.0-5 (PreLTS)</a></b> | <span style='color:#d35400; font-weight:bold;'>Requires telemt v3.0.15+</span>]])
+m = Map("telemt", "Telegram Proxy (MTProto)", [[Multi-user proxy server based on <a href="https://github.com/telemt/telemt" target="_blank" style="text-decoration:none; color:inherit; font-weight:bold; border-bottom: 1px dotted currentColor;">telemt</a>.<br><b>LuCI App Version: <a href="https://github.com/Medvedolog/luci-app-telemt" target="_blank" style="text-decoration:none; color:inherit; border-bottom: 1px dotted currentColor;">3.1.0-3 (PreLTS)</a></b> | <span style='color:#d35400; font-weight:bold;'>Requires telemt v3.0.15+</span>]])
 m.on_commit = function(self) sys.call("logger -t telemt 'WebUI: Configuration changes saved and committed'") end
 
 s = m:section(NamedSection, "general", "telemt")
@@ -418,13 +418,12 @@ local myip_u = s:taboption("users", DummyValue, "_ip_display", "External IP / Dy
 -- ------------------------------------------------------------------------------
 -- PURE CBI SECTION FOR USERS (TypedSection)
 -- By defining s2.anonymous = false, we instruct LuCI to natively render 
--- the primary section identifier column (Name) in standard environments (OWrt 21-24).
--- In OpenWrt 25, VDOM skips this, which is handled gracefully by our pure ASCII JS Fallback.
+-- the primary section identifier column (Name).
 -- ------------------------------------------------------------------------------
 s2 = m:section(TypedSection, "user", "")
 s2.template = "cbi/tblsection"
 s2.addremove = true
-s2.anonymous = false
+s2.anonymous = false  -- This naturally creates the 'Name' column across all OpenWrt versions
 s2.create = function(self, section) 
     if not section or not section:match("^[A-Za-z0-9_]+$") then return nil end 
     if #section > 15 then return nil end 
@@ -455,7 +454,7 @@ local lnk = s2:option(DummyValue, "_link", "Ready-to-use link" .. tip("Click the
 
 -- ------------------------------------------------------------------------------
 -- CUSTOM CSS AND JAVASCRIPT PAYLOAD
--- Manages VDOM interactions, live updates, ASCII Graceful Degradation, and UX.
+-- Manages VDOM interactions, live updates, and UX refinements.
 -- ------------------------------------------------------------------------------
 m.description = [[
 <style>
@@ -464,7 +463,8 @@ m.description = [[
 /* FIX: Kill LuCI's native description rows completely to prevent the "Leave empty" white gap bug */
 #cbi-telemt-user .cbi-section-table-descr { display: none !important; width: 0 !important; height: 0 !important; visibility: hidden !important; }
 
-/* ===== NATIVE COLUMN STRATEGY & FALLBACK STYLES (OpenWrt 21-25) ===== */
+/* ===== NATIVE COLUMN STRATEGY (OpenWrt 21-25) ===== */
+/* Instead of hiding the native Name column, we embrace it and style it! */
 
 /* Template row: NEVER visible */
 #cbi-telemt-user .cbi-row-template,
@@ -476,20 +476,15 @@ m.description = [[
     pointer-events: none !important;
 }
 
-/* Base style for username (Used in both Standard and Fallback modes).
-   Enforces coloring dynamically so it cannot be stripped by DOM re-renders. */
-.telemt-user-col-text {
+/* Style the native first column to look like our custom 'User' column */
+#cbi-telemt-user .cbi-section-table td:first-child {
     font-weight: bold !important;
     color: #005ce6 !important;
+    vertical-align: middle !important;
     white-space: nowrap !important;
 }
 @media (prefers-color-scheme: dark) {
-    .telemt-user-col-text { color: #4da6ff !important; }
-}
-
-/* Style the native first column (Standard mode for OWrt 21-24) */
-#cbi-telemt-user .cbi-section-table td:first-child {
-    vertical-align: middle !important;
+    #cbi-telemt-user .cbi-section-table td:first-child { color: #4da6ff !important; }
 }
 
 /* Mobile responsive fix for the native first column */
@@ -916,7 +911,7 @@ function showImportModal() {
         document.getElementById('btn_csv_import').addEventListener('click', submitImport);
         document.getElementById('btn_csv_cancel').addEventListener('click', closeModals);
     }
-    document.getElementById('csv_file_input').value = ""; document.getElementById('csv_file_name_display').innerText = "No file selected"; document.getElementById('csv_text_area').value = "";
+    document.getElementById('csv_file_input').value = ""; document.getElementById('csv_file_name_display').innerText = "No file selected"; document.getElementById('csv_text_area').value = ""
     m.classList.add('active'); document.body.classList.add('qr-modal-open');
 }
 
@@ -953,10 +948,11 @@ function fixTabIsolation() {
     }
 }
 
--- ------------------------------------------------------------------------------
--- TEMPLATE ROW GUARD
--- Prevents the "Leave empty to auto-generate" ghost-row flash.
--- ------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------
+// TEMPLATE ROW GUARD
+// Prevents the "Leave empty to auto-generate" ghost-row flash.
+// Identifies framework-rendered blank rows across OWrt 21-25.
+// ------------------------------------------------------------------------------
 function isTemplateRow(row) {
     if (!row) return true;
     if (row.classList.contains('cbi-row-template')) return true;
@@ -966,35 +962,17 @@ function isTemplateRow(row) {
     return false;
 }
 
--- ------------------------------------------------------------------------------
--- MAIN DOM INJECTOR (GRACEFUL DEGRADATION ENGINE)
--- ------------------------------------------------------------------------------
 function injectUI() {
     fixTabIsolation();
     
-    // FEATURE DETECTION: Detect if OpenWrt 25 VDOM swallowed the Name column
-    var isFallbackMode = false;
+    // NATIVE COLUMN STRATEGY: Safely rename the native header without breaking DOM
+    // This approach guarantees compatibility with OpenWrt 25 VDOM by reusing the built-in Name cell.
     var firstTh = document.querySelector('#cbi-telemt-user .cbi-section-table-titles th:first-child') || 
                   document.querySelector('#cbi-telemt-user thead th:first-child');
-                  
-    if (firstTh) {
-        var dn = (firstTh.getAttribute('data-name') || '').trim();
-        if (dn === 'secret') {
-            // OpenWrt 25 detected: The first rendered column is 'secret'.
-            // The native section name column is physically missing.
-            isFallbackMode = true;
-        } else if (!firstTh.dataset.renamed) {
-            // OpenWrt 21-24 detected: Native Name column exists. Safely rename it.
-            // Notice: We don't touch tooltips, only the pure text node.
-            for (var k = 0; k < firstTh.childNodes.length; k++) {
-                var node = firstTh.childNodes[k];
-                if (node.nodeType === 3) { -- Text node
-                    var txt = node.nodeValue.trim().toLowerCase();
-                    if (txt === 'name' || txt === 'название' || txt === '') {
-                        node.nodeValue = 'User';
-                    }
-                }
-            }
+    if (firstTh && !firstTh.dataset.renamed) {
+        var txt = (firstTh.textContent || '').trim().toLowerCase();
+        if (txt === 'name' || txt === 'название' || txt === '') {
+            firstTh.textContent = 'User';
             firstTh.dataset.renamed = "1";
         }
     }
@@ -1021,43 +999,6 @@ function injectUI() {
         var linkWrap = row.querySelector('.link-wrapper');
         if (!secInp || niList.length === 0 || !linkWrap) return;
         row.dataset.injected = "1";
-        
-        // Extract username cleanly from the generated secret input name
-        var match = secInp.name.match(/cbid\.telemt\.([^.]+)\.secret/);
-        var uName = match ? match[1] : '?';
-
-        if (isFallbackMode) {
-            // --- GRACEFUL FALLBACK (OpenWrt 25) ---
-            // Inject pure UNIX ASCII username directly inside the 'Secret' cell.
-            // Using strict class assignment for guaranteed coloring.
-            var secretTd = secInp.closest('td');
-            if (secretTd) {
-                var nameDiv = secretTd.querySelector('.telemt-fallback-name');
-                if (!nameDiv) {
-                    nameDiv = document.createElement('div');
-                    nameDiv.className = 'telemt-fallback-name telemt-user-col-text';
-                    nameDiv.style.cssText = 'margin-bottom: 6px; font-size: 1.1em; font-family: monospace; display: block;';
-                    secretTd.insertBefore(nameDiv, secretTd.firstChild);
-                }
-                // Check and enforce correct text
-                nameDiv.innerText = '[ user: ' + uName + ' ]'; 
-            }
-        } else {
-            // --- STANDARD MODE (OpenWrt 21-24) ---
-            // Enforce blue bold styling to the native first column via explicit class check.
-            var ftd = row.firstElementChild;
-            if (ftd) {
-                var span = ftd.querySelector('.telemt-user-col-text');
-                if (!span) {
-                    span = document.createElement('span');
-                    span.className = 'telemt-user-col-text';
-                    ftd.innerHTML = '';
-                    ftd.appendChild(span);
-                }
-                // Check and enforce correct text
-                span.innerText = uName;
-            }
-        }
         
         if(secInp) {
             if(secInp.value.trim() === "") { secInp.value = genRandHex(); secInp.dispatchEvent(new Event('change', {bubbles: true})); }
@@ -1143,3 +1084,4 @@ if (document.readyState === 'loading') { document.addEventListener('DOMContentLo
 ]] .. (m.description or "")
 
 return m
+
