@@ -3,7 +3,7 @@
 # Telemt MTProxy Service Management Script (Procd Init)
 #
 # Responsibilities:
-# 1. Parse OpenWrt UCI configuration and generate 'config.toml' for the Telemt binary.
+# 1. Parse OpenWrt UCI configuration and generate a minimal 'config.toml'.
 # 2. Manage the daemon lifecycle via procd (start, stop, respawn limits).
 # 3. Dynamically inject firewall rules (RAM-only) via procd JSON API.
 # 4. Dump Prometheus traffic metrics to persistent storage on shutdown.
@@ -216,6 +216,7 @@ start_service() {
 
     # ==========================================================================
     # TOML GENERATION 
+    # Generates a minimal compliant TOML with dynamic UI additions
     # ==========================================================================
     cat <<TOML > "$TMP_CONF"
 [network]
@@ -246,6 +247,14 @@ me_pool_drain_ttl_secs = $me_drain_ttl
 auto_degradation_enabled = $auto_deg_str
 degradation_min_unavailable_dc_groups = $deg_min_dc
 TOML
+        # Smart Fallback: If user explicitly disabled STUN probing in UI,
+        # inject the user-provided Announce IP directly as the NAT IP.
+        # Strict IPv4 regex is required to prevent the Rust TOML parser from panicking on domains.
+        if [ "$use_stun" -eq 0 ] && [ -n "$announce_ip" ]; then
+            if echo "$announce_ip" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+                printf 'middle_proxy_nat_ip = "%s"\n' "$announce_ip" >> "$TMP_CONF"
+            fi
+        fi
     fi
 
     if [ "$desync_all" -eq 1 ]; then echo "desync_all_full = true" >> "$TMP_CONF"; fi
@@ -272,7 +281,8 @@ TOML
     printf '\n[general.links]\nshow = [%s]\n' "$links_str" >> "$TMP_CONF"
     
     # --------------------------------------------------------------------------
-    # Telemt 3.1.0 Feature: Override detected IP with explicit host for links
+    # Telemt 3.1.0 Feature: Override auto-detected IP with explicit host/domain
+    # ensures correct tg:// link generation behind NAT.
     # --------------------------------------------------------------------------
     if [ -n "$announce_ip" ]; then
         printf 'public_host = "%s"\n' "$announce_ip" >> "$TMP_CONF"
@@ -292,7 +302,7 @@ TOML
     # --------------------------------------------------------------------------
     # Telemt 3.1.0 Feature: Advanced TLS record emulation masking
     # Requires a temporary directory to cache fetched server profile data.
-    # We place it in /var/etc/ so it resides in fast RAM and clears on reboot.
+    # Placed in /var/etc/ to reside in volatile RAM, clearing on reboot.
     # --------------------------------------------------------------------------
     mkdir -p /var/etc/telemt_tlsfront
 
