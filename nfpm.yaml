@@ -4,11 +4,11 @@
 # ==============================================================================
 name: "luci-app-telemt"
 platform: "linux"
-version: "3.1.0-3"
+version: "3.1.0-4"
 section: "net"
 maintainer: "Medvedolog <Medvedolog@github.com>"
 description: |
-  Ultimate LuCI WebUI for Telemt MTProxy (v3.1.0-3 PreLTS).
+  Ultimate LuCI WebUI for Telemt MTProxy (v3.1.0-4 PreLTS).
   Features: Native DOM Strategy, VDOM Compatibility for OpenWrt 21-25.
 depends:
   - libc
