@@ -216,13 +216,19 @@ start_service() {
 
     # ==========================================================================
     # TOML GENERATION 
-    # Generates a minimal compliant TOML with dynamic UI additions
     # ==========================================================================
     cat <<TOML > "$TMP_CONF"
 [network]
 ipv4 = $v4_str
 ipv6 = $v6_str
 prefer = $prefer_ip
+stun_servers = [
+  "stun.l.google.com:5349",
+  "stun1.l.google.com:3478",
+  "stun.l.google.com:19302",
+  "stun1.l.google.com:19302"
+]
+stun_tcp_fallback = true
 
 [general]
 fast_mode = true
