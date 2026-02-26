@@ -247,14 +247,6 @@ me_pool_drain_ttl_secs = $me_drain_ttl
 auto_degradation_enabled = $auto_deg_str
 degradation_min_unavailable_dc_groups = $deg_min_dc
 TOML
-        # Smart Fallback: If user explicitly disabled STUN probing in UI,
-        # inject the user-provided Announce IP directly as the NAT IP.
-        # Strict IPv4 regex is required to prevent the Rust TOML parser from panicking on domains.
-        if [ "$use_stun" -eq 0 ] && [ -n "$announce_ip" ]; then
-            if echo "$announce_ip" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-                printf 'middle_proxy_nat_ip = "%s"\n' "$announce_ip" >> "$TMP_CONF"
-            fi
-        fi
     fi
 
     if [ "$desync_all" -eq 1 ]; then echo "desync_all_full = true" >> "$TMP_CONF"; fi
@@ -296,8 +288,22 @@ metrics_port = $metrics_port
 metrics_whitelist = [$wl_toml]
 TOML
 
-    if [ "$listen_ipv4" -eq 1 ]; then echo "listen_addr_ipv4 = \"0.0.0.0\"" >> "$TMP_CONF"; fi
-    if [ "$listen_ipv6" -eq 1 ]; then echo "listen_addr_ipv6 = \"::\"" >> "$TMP_CONF"; fi
+    # --------------------------------------------------------------------------
+    # Smart Fallback: If user explicitly disabled STUN probing, bypass the 
+    # network prober's strict NAT check by feeding the Announce IP directly 
+    # into the listener block. The prober will read it and allow ME Proxy.
+    # --------------------------------------------------------------------------
+    if [ "$listen_ipv4" -eq 1 ]; then 
+        if [ "$use_stun" -eq 0 ] && [ -n "$announce_ip" ]; then
+            printf '\n[[server.listeners]]\nip = "0.0.0.0"\nannounce = "%s"\n' "$announce_ip" >> "$TMP_CONF"
+        else
+            echo "listen_addr_ipv4 = \"0.0.0.0\"" >> "$TMP_CONF"
+        fi
+    fi
+
+    if [ "$listen_ipv6" -eq 1 ]; then 
+        echo "listen_addr_ipv6 = \"::\"" >> "$TMP_CONF"
+    fi
 
     # --------------------------------------------------------------------------
     # Telemt 3.1.0 Feature: Advanced TLS record emulation masking
