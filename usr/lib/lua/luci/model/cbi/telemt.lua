@@ -1,12 +1,12 @@
 -- ==============================================================================
 -- Telemt CBI Model (Configuration Binding Interface)
--- Version: 3.1.0-3 (PreLTS)
+-- Version: 3.1.2 (PreLTS)
 -- 
 -- Architecture:
 -- - Map: Connects to '/etc/config/telemt' and automatically handles I/O.
 -- - AJAX Endpoints: Intercepts POST/GET requests for live metrics, logs, and FW status.
--- - DOM Mutation: Injects raw JS/CSS to dynamically handle FakeTLS links, CSV imports,
---   and universally patch OpenWrt 24/25 VDOM table rendering using native components.
+-- - DOM Mutation (Client-Side): Bulletproof OpenWrt 21-25 compatibility using 
+--   Cell-Level Feature Detection. Strict ASCII Graceful Degradation for LuCI2 VDOM.
 -- ==============================================================================
 
 local sys = require "luci.sys"
@@ -28,7 +28,6 @@ local function read_file(path)
     return (d:gsub("%s+", ""))
 end
 
--- Resolve the current safe URL to ensure AJAX requests are routed accurately
 local _unpack = unpack or table.unpack
 local _ok_url, current_url = pcall(function()
     if dsp.context and dsp.context.request then return dsp.build_url(_unpack(dsp.context.request)) end
@@ -41,9 +40,6 @@ local function tip(txt) return string.format([[<span class="telemt-tip" title="%
 
 local is_post = (http.getenv("REQUEST_METHOD") == "POST")
 
--- ------------------------------------------------------------------------------
--- AJAX Endpoint: UI event logging (Sanitized against injection)
--- ------------------------------------------------------------------------------
 if is_post and http.formvalue("log_ui_event") == "1" then
     local msg = http.formvalue("msg")
     if msg then 
@@ -53,9 +49,6 @@ if is_post and http.formvalue("log_ui_event") == "1" then
     http.prepare_content("text/plain"); http.write("ok"); http.close(); return
 end
 
--- ------------------------------------------------------------------------------
--- AJAX Endpoint: Control buttons handlers (Reset stats, Start, Stop, Restart)
--- ------------------------------------------------------------------------------
 if is_post and http.formvalue("reset_stats") == "1" then
     sys.call("logger -t telemt 'WebUI: Executed manual Reset Traffic Stats'")
     sys.call("rm -f /tmp/telemt_stats.txt")
@@ -82,10 +75,6 @@ end
 
 local is_ajax = (http.formvalue("get_metrics") or http.formvalue("get_fw_status") or http.formvalue("get_log") or http.formvalue("get_wan_ip") or http.formvalue("get_qr") or http.formvalue("log_ui_event"))
 
--- ------------------------------------------------------------------------------
--- AJAX Endpoint: Firewall status checker
--- Validates both physical OS rules (iptables/nftables) and Procd virtual states.
--- ------------------------------------------------------------------------------
 if http.formvalue("get_fw_status") == "1" then
     local afw = uci_cursor:get("telemt", "general", "auto_fw") or "0"
     local port_str = uci_cursor:get("telemt", "general", "port") or "4443"
@@ -97,7 +86,6 @@ if http.formvalue("get_fw_status") == "1" then
     
     local procd_check = sys.exec("ubus call service list '{\"name\":\"telemt\"}' 2>/dev/null")
     local is_procd_open = (procd_check and procd_check:match("firewall") and procd_check:match("Allow%-Telemt%-Magic"))
-    
     local is_running = (sys.call("pidof telemt >/dev/null 2>&1") == 0)
     
     local status_msg = ""
@@ -114,23 +102,13 @@ if http.formvalue("get_fw_status") == "1" then
         tip_msg = "(Port not found in FW rules. Consider adding manually)"
     end
     
-    if not is_running then
-        status_msg = "<span style='color:#d9534f; font-weight:bold'>SERVICE STOPPED</span> <span style='color:#888'>|</span> " .. status_msg
-    end
+    if not is_running then status_msg = "<span style='color:#d9534f; font-weight:bold'>SERVICE STOPPED</span> <span style='color:#888'>|</span> " .. status_msg end
     
     local final_out = status_msg
-    if tip_msg ~= "" then
-        final_out = final_out .. " <span style='color:#888; font-size:0.85em; margin-left:5px;'>" .. tip_msg .. "</span>"
-    end
-    
-    http.write(final_out)
-    http.close(); return
+    if tip_msg ~= "" then final_out = final_out .. " <span style='color:#888; font-size:0.85em; margin-left:5px;'>" .. tip_msg .. "</span>" end
+    http.write(final_out); http.close(); return
 end
 
--- ------------------------------------------------------------------------------
--- AJAX Endpoint: Telemt Metrics Aggregator
--- Combines live prometheus payload with disk-saved historical statistics.
--- ------------------------------------------------------------------------------
 if http.formvalue("get_metrics") == "1" then
     local m_port = tonumber(uci_cursor:get("telemt", "general", "metrics_port")) or 9091
     local metrics = ""
@@ -151,9 +129,6 @@ if http.formvalue("get_metrics") == "1" then
     http.prepare_content("text/plain"); http.write(metrics); http.close(); return
 end
 
--- ------------------------------------------------------------------------------
--- AJAX Endpoint: Diagnostics Log Fetcher
--- ------------------------------------------------------------------------------
 if http.formvalue("get_log") == "1" then
     http.prepare_content("text/plain")
     local cmd = "logread -e 'telemt' | tail -n 50 2>/dev/null"
@@ -164,9 +139,6 @@ if http.formvalue("get_log") == "1" then
     http.write(log_data); http.close(); return
 end
 
--- ------------------------------------------------------------------------------
--- AJAX Endpoint: External IP auto-resolver
--- ------------------------------------------------------------------------------
 if http.formvalue("get_wan_ip") == "1" then
     http.prepare_content("text/plain")
     local fetch_cmd = (fetch_bin == "wget") and "wget -q --timeout=3 -O -" or "uclient-fetch -q --timeout=3 -O -"
@@ -177,9 +149,6 @@ if http.formvalue("get_wan_ip") == "1" then
     http.write(ip); http.close(); return
 end
 
--- ------------------------------------------------------------------------------
--- AJAX Endpoint: Server-side QR Code SVG generator
--- ------------------------------------------------------------------------------
 if http.formvalue("get_qr") == "1" then
     local link = http.formvalue("link")
     if not link or link == "" then http.close(); return end
@@ -191,9 +160,6 @@ if http.formvalue("get_qr") == "1" then
     local svg = sys.exec(cmd); http.write(svg); http.close(); return
 end
 
--- ------------------------------------------------------------------------------
--- CSV Pre-computation for User Export 
--- ------------------------------------------------------------------------------
 local clean_csv = "username,secret,max_tcp_conns,max_unique_ips,data_quota,expire_date\n"
 uci_cursor:foreach("telemt", "user", function(s)
     local name = s['.name'] or ""; local sec = s.secret or ""; local conns = s.max_tcp_conns or ""; local uips = s.max_unique_ips or ""; local quota = s.data_quota or ""; local exp = s.expire_date or ""
@@ -201,7 +167,6 @@ uci_cursor:foreach("telemt", "user", function(s)
 end)
 clean_csv = clean_csv:gsub("\n", "\\n"):gsub("\r", "")
 
--- Normalizer function ensuring imported secrets have valid length and format
 local function norm_secret(s)
     if not s then return nil end
     s = s:match("secret=(%x+)") or s; local hex = s:match("(%x+)")
@@ -210,10 +175,6 @@ local function norm_secret(s)
     if #hex < 32 then return nil end; return hex:sub(1, 32):lower()
 end
 
--- ------------------------------------------------------------------------------
--- CSV File Importer Logic (Form POST interceptor)
--- Validates columns, handles BOM, replaces/merges DB state.
--- ------------------------------------------------------------------------------
 if is_post and http.formvalue("import_users") == "1" then
     local csv = http.formvalue("csv_data")
     if csv and csv ~= "" then
@@ -252,7 +213,6 @@ if is_post and http.formvalue("import_users") == "1" then
     http.redirect(current_url); return
 end
 
--- Determine binary availability and version
 local bin_info = ""
 if not is_ajax then
     local bin_path = (sys.exec("command -v telemt 2>/dev/null") or ""):gsub("%s+", "")
@@ -265,10 +225,8 @@ if not is_ajax then
     end
 end
 
--- ==============================================================================
--- UI FORM INITIALIZATION & TAB BINDINGS
--- ==============================================================================
-m = Map("telemt", "Telegram Proxy (MTProto)", [[Multi-user proxy server based on <a href="https://github.com/telemt/telemt" target="_blank" style="text-decoration:none; color:inherit; font-weight:bold; border-bottom: 1px dotted currentColor;">telemt</a>.<br><b>LuCI App Version: <a href="https://github.com/Medvedolog/luci-app-telemt" target="_blank" style="text-decoration:none; color:inherit; border-bottom: 1px dotted currentColor;">3.1.0-3 (PreLTS)</a></b> | <span style='color:#d35400; font-weight:bold;'>Requires telemt v3.0.15+</span>]])
+m = Map("telemt", "Telegram Proxy (MTProto)", [[Multi-user proxy server based on <a href="https://github.com/telemt/telemt" target="_blank" style="text-decoration:none; color:inherit; font-weight:bold; border-bottom: 1px dotted currentColor;">telemt</a>.<br><b>LuCI App Version: <a href="https://github.com/Medvedolog/luci-app-telemt" target="_blank" style="text-decoration:none; color:inherit; border-bottom: 1px dotted currentColor;">3.1.2 (PreLTS)</a></b> | <span style='color:#d35400; font-weight:bold;'>Requires telemt v3.0.15+</span>]])
+
 m.on_commit = function(self) 
     sys.call("logger -t telemt 'WebUI: Config saved. Dumping stats before procd reload...'")
     sys.call("/etc/init.d/telemt run_save_stats 2>/dev/null")
@@ -292,24 +250,12 @@ ctrl.default = string.format([[
 </div>
 <script>
 function postAction(action) {
-    var form = document.createElement('form');
-    form.method = 'POST';
-    form.action = '%s'.split('#')[0];
-    var input = document.createElement('input');
-    input.type = 'hidden'; input.name = action; input.value = '1';
-    form.appendChild(input);
+    var form = document.createElement('form'); form.method = 'POST'; form.action = '%s'.split('#')[0];
+    var input = document.createElement('input'); input.type = 'hidden'; input.name = action; input.value = '1'; form.appendChild(input);
     var token = document.querySelector('input[name="token"]');
-    if (token) {
-        var t = document.createElement('input');
-        t.type = 'hidden'; t.name = 'token'; t.value = token.value;
-        form.appendChild(t);
-    } else if (typeof L !== 'undefined' && L.env && L.env.token) {
-        var t2 = document.createElement('input');
-        t2.type = 'hidden'; t2.name = 'token'; t2.value = L.env.token;
-        form.appendChild(t2);
-    }
-    document.body.appendChild(form);
-    form.submit();
+    if (token) { var t = document.createElement('input'); t.type = 'hidden'; t.name = 'token'; t.value = token.value; form.appendChild(t); }
+    else if (typeof L !== 'undefined' && L.env && L.env.token) { var t2 = document.createElement('input'); t2.type = 'hidden'; t2.name = 'token'; t2.value = L.env.token; form.appendChild(t2); }
+    document.body.appendChild(form); form.submit();
 }
 setTimeout(function(){
     var b1=document.getElementById('btn_telemt_start'); if(b1) b1.addEventListener('click', function(){ logAction('Manual Start'); postAction('start'); });
@@ -385,6 +331,14 @@ local deg_min_dc = s:taboption("advanced", Value, "degradation_min_dc", "Degrada
 
 local hadv = s:taboption("advanced", DummyValue, "_head_adv"); hadv.rawhtml = true; hadv.default = "<h3 style='margin-top:20px;'>Additional Options</h3>"
 local desync = s:taboption("advanced", Flag, "desync_all_full", "Full Crypto-Desync Logs" .. tip("Emit full forensic logs for every event. False = once per key window. Default: disabled (false).")); desync.default = "0"
+
+-- v3.1.2 new feature: PROXY protocol to mask host
+local mpp = s:taboption("advanced", ListValue, "mask_proxy_protocol", "Mask Proxy Protocol" .. tip("Send PROXY protocol header to mask_host (if behind HAProxy/Nginx)."))
+mpp:value("0", "0 (Off)")
+mpp:value("1", "1 (v1 - Text)")
+mpp:value("2", "2 (v2 - Binary)")
+mpp.default = "0"
+
 local ip = s:taboption("advanced", Value, "announce_ip", "Announce Address" .. tip("Optional. Public IP or Domain for tg:// links. Overrides 'External IP' if set.")); ip.datatype = "string"; function ip.validate(self, value) if value and #value > 0 then value = value:match("^([^%s]+)"); if not value:match("^[a-zA-Z0-9%-%.:]+$") then return nil, "Invalid characters! Allowed: a-z, 0-9, . - :" end end return value end
 local ad = s:taboption("advanced", Value, "ad_tag", "Ad Tag" .. tip("Get your 32-hex promotion tag from @mtproxybot.")); ad.datatype = "hexstring"; function ad.validate(self, value) if value and #value > 0 and #value ~= 32 then return nil, "Ad Tag must be exactly 32 hex characters!" end return value end
 local fcl = s:taboption("advanced", Value, "fake_cert_len", "Fake Cert Length" .. tip("Size of the generated fake TLS certificate in bytes. Default: 2048.")); fcl.datatype = "uinteger"; fcl.default = "2048"
@@ -418,15 +372,10 @@ lv.default = [[<div style="width:100%; box-sizing:border-box; height:500px; font
 local anchor = s:taboption("users", DummyValue, "_users_anchor", ""); anchor.rawhtml = true; anchor.default = '<div id="users_tab_anchor" style="display:none"></div>'
 local myip_u = s:taboption("users", DummyValue, "_ip_display", "External IP / DynDNS" .. tip("IP address or domain used for generating tg:// links.")); myip_u.rawhtml = true; myip_u.default = string.format([[<input type="text" class="cbi-input-text" style="width:250px;" id="telemt_mirror_ip" value="%s">]], saved_ip)
 
--- ------------------------------------------------------------------------------
--- PURE CBI SECTION FOR USERS (TypedSection)
--- By defining s2.anonymous = false, we instruct LuCI to natively render 
--- the primary section identifier column (Name).
--- ------------------------------------------------------------------------------
 s2 = m:section(TypedSection, "user", "")
 s2.template = "cbi/tblsection"
 s2.addremove = true
-s2.anonymous = false  -- This naturally creates the 'Name' column across all OpenWrt versions
+s2.anonymous = false
 s2.create = function(self, section) 
     if not section or not section:match("^[A-Za-z0-9_]+$") then return nil end 
     if #section > 15 then return nil end 
@@ -455,88 +404,30 @@ function t_exp.validate(self, value) if not value then return "" end value = val
 local lst = s2:option(DummyValue, "_stat", "Live Traffic" .. tip("Accumulated usage & sessions")); lst.rawhtml = true; function lst.cfgvalue(self, section) return string.format('<div class="user-flat-stat" data-user="%s"><span style="color:#888;">No Data</span></div>', section:gsub("[<>&\"']", "")) end
 local lnk = s2:option(DummyValue, "_link", "Ready-to-use link" .. tip("Click the link to copy it.")); lnk.rawhtml = true; lnk.default = [[<div class="link-wrapper"><input type="text" class="cbi-input-text user-link-out" readonly onclick="this.select()"></div>]]
 
--- ------------------------------------------------------------------------------
--- CUSTOM CSS AND JAVASCRIPT PAYLOAD
--- Manages VDOM interactions, live updates, and UX refinements.
--- ------------------------------------------------------------------------------
 m.description = [[
 <style>
 .cbi-value-helpicon, img[src*="help.gif"], img[src*="help.png"] { display: none !important; }
-
-/* FIX: Kill LuCI's native description rows completely to prevent the "Leave empty" white gap bug */
 #cbi-telemt-user .cbi-section-table-descr { display: none !important; width: 0 !important; height: 0 !important; visibility: hidden !important; }
-
-/* ===== NATIVE COLUMN STRATEGY (OpenWrt 21-25) ===== */
-/* Instead of hiding the native Name column, we embrace it and style it! */
 
 /* Template row: NEVER visible */
 #cbi-telemt-user .cbi-row-template,
-#cbi-telemt-user [id*="-template"] {
-    display: none !important;
-    visibility: hidden !important;
-    height: 0 !important;
-    overflow: hidden !important;
-    pointer-events: none !important;
-}
+#cbi-telemt-user [id*="-template"] { display: none !important; visibility: hidden !important; height: 0 !important; overflow: hidden !important; pointer-events: none !important; }
 
-/* Style the native first column to look like our custom 'User' column */
-#cbi-telemt-user .cbi-section-table td:first-child {
-    font-weight: bold !important;
-    color: #005ce6 !important;
-    vertical-align: middle !important;
-    white-space: nowrap !important;
-}
-@media (prefers-color-scheme: dark) {
-    #cbi-telemt-user .cbi-section-table td:first-child { color: #4da6ff !important; }
-}
+/* Styling for the injected Name text (Used in both UI modes) */
+.telemt-user-col-text { font-weight: bold !important; color: #005ce6 !important; white-space: nowrap !important; }
+@media (prefers-color-scheme: dark) { .telemt-user-col-text { color: #4da6ff !important; } }
 
-/* Mobile responsive fix for the native first column */
-@media screen and (max-width: 768px) {
-    #cbi-telemt-user .cbi-section-table td:first-child { 
-        font-size: 1.1em !important;
-        border-bottom: 1px solid var(--border-color, #ddd) !important;
-        margin-bottom: 8px !important;
-        padding-bottom: 8px !important;
-    }
-}
+/* Fix for native columns if they exist */
+#cbi-telemt-user .cbi-section-table td:first-child { vertical-align: middle !important; }
+@media screen and (max-width: 768px) { #cbi-telemt-user .cbi-section-table td:first-child { font-size: 1.1em !important; border-bottom: 1px solid var(--border-color, #ddd) !important; margin-bottom: 8px !important; padding-bottom: 8px !important; } }
 
-/* Delete button: Universal idle + hover states */
-html body #cbi-telemt-user .cbi-section-table .cbi-button-remove:not(.telemt-btn-cross),
-html body #cbi-telemt-user .cbi-section-table .cbi-button-del,
-html body #cbi-telemt-user .cbi-section-actions .cbi-button-remove:not(.telemt-btn-cross),
-html body #cbi-telemt-user td.cbi-section-actions .cbi-button-remove:not(.telemt-btn-cross) {
-    color: #d9534f !important;
-    -webkit-text-fill-color: #d9534f !important;
-    background-color: transparent !important;
-    background-image: none !important;
-    border: 1px solid #d9534f !important;
-    opacity: 0.8 !important;
-    text-shadow: none !important;
-    transition: all 0.2s ease !important;
-    width: auto !important; min-width: 0 !important; display: inline-block !important; padding: 0 12px !important; height: 30px !important; line-height: 28px !important; box-sizing: border-box !important; margin: 0 !important; text-align: center !important; font-weight: normal !important; box-shadow: none !important;
-}
-
-html body #cbi-telemt-user .cbi-section-table .cbi-button-remove:not(.telemt-btn-cross):hover,
-html body #cbi-telemt-user .cbi-section-table .cbi-button-remove:not(.telemt-btn-cross):focus,
-html body #cbi-telemt-user .cbi-section-table .cbi-button-remove:not(.telemt-btn-cross):active,
-html body #cbi-telemt-user .cbi-section-table .cbi-button-del:hover,
-html body #cbi-telemt-user .cbi-section-table .cbi-button-del:focus,
-html body #cbi-telemt-user .cbi-section-table .cbi-button-del:active,
-html body #cbi-telemt-user .cbi-section-actions .cbi-button-remove:not(.telemt-btn-cross):hover,
-html body #cbi-telemt-user td.cbi-section-actions .cbi-button-remove:not(.telemt-btn-cross):hover {
-    background-color: #d9534f !important;
-    background-image: none !important;
-    color: #ffffff !important;
-    -webkit-text-fill-color: #ffffff !important;
-    opacity: 1 !important;
-    text-shadow: none !important;
-    border-color: #d9534f !important;
-}
+/* Standard UI Elements */
+html body #cbi-telemt-user .cbi-section-table .cbi-button-remove:not(.telemt-btn-cross), html body #cbi-telemt-user .cbi-section-table .cbi-button-del, html body #cbi-telemt-user .cbi-section-actions .cbi-button-remove:not(.telemt-btn-cross), html body #cbi-telemt-user td.cbi-section-actions .cbi-button-remove:not(.telemt-btn-cross) { color: #d9534f !important; -webkit-text-fill-color: #d9534f !important; background-color: transparent !important; background-image: none !important; border: 1px solid #d9534f !important; opacity: 0.8 !important; text-shadow: none !important; transition: all 0.2s ease !important; width: auto !important; min-width: 0 !important; display: inline-block !important; padding: 0 12px !important; height: 30px !important; line-height: 28px !important; box-sizing: border-box !important; margin: 0 !important; text-align: center !important; font-weight: normal !important; box-shadow: none !important; }
+html body #cbi-telemt-user .cbi-section-table .cbi-button-remove:not(.telemt-btn-cross):hover, html body #cbi-telemt-user .cbi-section-table .cbi-button-remove:not(.telemt-btn-cross):focus, html body #cbi-telemt-user .cbi-section-table .cbi-button-remove:not(.telemt-btn-cross):active, html body #cbi-telemt-user .cbi-section-table .cbi-button-del:hover, html body #cbi-telemt-user .cbi-section-table .cbi-button-del:focus, html body #cbi-telemt-user .cbi-section-table .cbi-button-del:active, html body #cbi-telemt-user .cbi-section-actions .cbi-button-remove:not(.telemt-btn-cross):hover, html body #cbi-telemt-user td.cbi-section-actions .cbi-button-remove:not(.telemt-btn-cross):hover { background-color: #d9534f !important; background-image: none !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; opacity: 1 !important; text-shadow: none !important; border-color: #d9534f !important; }
 
 .cbi-value-description { margin: -8px 0 0 0 !important; padding: 0 !important; padding-left: 0 !important; margin-left: 0 !important; font-size: 0.85em !important; opacity: 0.8; display: block !important; white-space: normal !important; }
 .cbi-value-description::before { display: none !important; content: none !important; margin: 0 !important; padding: 0 !important; width: 0 !important; height: 0 !important; }
 .telemt-tip { display: inline-block !important; vertical-align: middle !important; white-space: nowrap !important; cursor: help !important; opacity: 0.5 !important; font-size: 0.85em !important; border-bottom: 1px dotted currentColor !important; margin-left: 4px !important; margin-top: -2px !important; }
-
 #cbi-telemt-user .cbi-section-table th { white-space: nowrap !important; vertical-align: middle !important; }
 #cbi-telemt-user .cbi-section-table th .telemt-tip { display: inline-block !important; float: none !important; }
 #cbi-telemt-user .cbi-section-table { table-layout: auto !important; }
@@ -553,30 +444,11 @@ html body #cbi-telemt-user td.cbi-section-actions .cbi-button-remove:not(.telemt
 .telemt-num-wrap { display: flex !important; align-items: center !important; width: 100% !important; box-sizing: border-box !important; gap: 4px; height: 32px; }
 .telemt-num-wrap > input:not([type="button"]) { flex: 1 1 auto !important; width: 100% !important; min-width: 40px !important; box-sizing: border-box !important; margin: 0 !important; height: 100% !important; }
 
-.telemt-btn-cross { 
-    flex: 0 0 24px !important; width: 24px !important; min-width: 24px !important; height: 24px !important; min-height: 24px !important; padding: 0 !important; margin: 0 !important; cursor: pointer !important;
-    background-color: transparent !important;
-    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='18' y1='6' x2='6' y2='18'/%3E%3Cline x1='6' y1='6' x2='18' y2='18'/%3E%3C/svg%3E") !important;
-    background-repeat: no-repeat !important; background-position: center !important; background-size: 14px !important;
-    border: none !important; box-shadow: none !important; opacity: 1 !important; transition: all 0.2s ease !important;
-}
-.telemt-btn-cross:hover { 
-    background-color: rgba(217, 83, 79, 0.1) !important; border-radius: 4px;
-    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d9534f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='18' y1='6' x2='6' y2='18'/%3E%3Cline x1='6' y1='6' x2='18' y2='18'/%3E%3C/svg%3E") !important;
-}
-
+.telemt-btn-cross { flex: 0 0 24px !important; width: 24px !important; min-width: 24px !important; height: 24px !important; min-height: 24px !important; padding: 0 !important; margin: 0 !important; cursor: pointer !important; background-color: transparent !important; background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='18' y1='6' x2='6' y2='18'/%3E%3Cline x1='6' y1='6' x2='18' y2='18'/%3E%3C/svg%3E") !important; background-repeat: no-repeat !important; background-position: center !important; background-size: 14px !important; border: none !important; box-shadow: none !important; opacity: 1 !important; transition: all 0.2s ease !important; }
+.telemt-btn-cross:hover { background-color: rgba(217, 83, 79, 0.1) !important; border-radius: 4px; background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d9534f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='18' y1='6' x2='6' y2='18'/%3E%3Cline x1='6' y1='6' x2='18' y2='18'/%3E%3C/svg%3E") !important; }
 .telemt-cal-wrap { position: relative; display: flex; flex: 0 0 24px; width: 24px; height: 24px; margin: 0; }
-.telemt-btn-cal { 
-    width: 100% !important; height: 100% !important; padding: 0 !important; margin: 0 !important; cursor: pointer !important;
-    background-color: transparent !important;
-    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E") !important;
-    background-repeat: no-repeat !important; background-position: center !important; background-size: 14px !important;
-    border: none !important; box-shadow: none !important; opacity: 1 !important; transition: all 0.2s ease !important;
-}
-.telemt-cal-wrap:hover .telemt-btn-cal { 
-    background-color: rgba(0, 160, 0, 0.1) !important; border-radius: 4px;
-    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2300a000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E") !important;
-}
+.telemt-btn-cal { width: 100% !important; height: 100% !important; padding: 0 !important; margin: 0 !important; cursor: pointer !important; background-color: transparent !important; background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E") !important; background-repeat: no-repeat !important; background-position: center !important; background-size: 14px !important; border: none !important; box-shadow: none !important; opacity: 1 !important; transition: all 0.2s ease !important; }
+.telemt-cal-wrap:hover .telemt-btn-cal { background-color: rgba(0, 160, 0, 0.1) !important; border-radius: 4px; background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2300a000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E") !important; }
 .telemt-cal-picker { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; color-scheme: light dark; z-index:2; }
 
 @media (prefers-color-scheme: dark) {
@@ -657,9 +529,7 @@ var lu_current_url = "]] .. safe_url .. [[";
 function logAction(msg, data) { var ts = new Date().toISOString().split('T')[1].slice(0, -1); console.log("[Telemt UI | " + ts + "] " + msg, data ? data : ""); }
 function escHTML(s) { return String(s).replace(/[&<>'"]/g, function(c) { return '&#' + c.charCodeAt(0) + ';'; }); }
 function logToRouter(msg) { 
-    var form = new FormData();
-    form.append('log_ui_event', '1');
-    form.append('msg', msg);
+    var form = new FormData(); form.append('log_ui_event', '1'); form.append('msg', msg);
     fetch(lu_current_url.split('#')[0], { method: 'POST', body: form }); 
 }
 function formatMB(bytes) { if(!bytes || bytes === 0) return '0.00 MB'; var mb = bytes / 1048576; if (mb >= 1024) return (mb / 1024).toFixed(2) + ' GB'; return mb.toFixed(2) + ' MB'; }
@@ -667,14 +537,9 @@ function formatUptime(secs) { if(!secs) return '0s'; var d = Math.floor(secs / 8
 
 window._telemtLastStats = null;
 
-// Background polling loop extracting Prometheus stats
 function fetchMetrics() {
-    if (!document.getElementById('cbi-telemt-general') && !document.getElementById('cbi-telemt-user')) {
-        stopTimers(); return;
-    }
-
-    var uTable = document.getElementById('cbi-telemt-user');
-    if (uTable && uTable.offsetParent === null) return; 
+    if (!document.getElementById('cbi-telemt-general') && !document.getElementById('cbi-telemt-user')) { stopTimers(); return; }
+    var uTable = document.getElementById('cbi-telemt-user'); if (uTable && uTable.offsetParent === null) return; 
     
     if (window._telemtFetching) return; window._telemtFetching = true;
     fetch(lu_current_url.split('#')[0] + (lu_current_url.indexOf('?') > -1 ? '&' : '?') + 'get_metrics=1&_t=' + Date.now()).then(r => r.text()).then(txt => {
@@ -705,7 +570,6 @@ function fetchMetrics() {
         allUserRows.forEach(function(statEl) {
             var u = statEl.getAttribute('data-user'); var stat = userStats[u] || { live_rx: 0, live_tx: 0, acc_rx: 0, acc_tx: 0, conns: 0 };
             var finalTx = stat.live_tx + stat.acc_tx; var finalRx = stat.live_rx + stat.acc_rx; if (stat.conns > 0) usersOnline++;
-            
             var c_col = stat.conns > 0 ? "#00a000" : "#888"; 
             var c_val = stat.conns > 0 ? stat.conns : "0";
             var c_cls = stat.conns > 0 ? "telemt-conns-bold" : "";
@@ -854,35 +718,19 @@ function submitImport() {
     var radioBtn = document.querySelector('input[name="import_mode"]:checked');
     var mode = radioBtn ? radioBtn.value : 'replace';
     
-    var form = document.createElement('form');
-    form.method = 'POST';
-    form.action = lu_current_url.split('#')[0];
-    
+    var form = document.createElement('form'); form.method = 'POST'; form.action = lu_current_url.split('#')[0];
     var inputs = { 'import_users': '1', 'csv_data': csv, 'import_mode': mode };
     for (var key in inputs) {
         var el = document.createElement(key === 'csv_data' ? 'textarea' : 'input');
         if (key !== 'csv_data') el.type = 'hidden';
-        el.name = key; el.value = inputs[key];
-        form.appendChild(el);
+        el.name = key; el.value = inputs[key]; form.appendChild(el);
     }
+    var tokenVal = ''; var tokenNode = document.querySelector('input[name="token"]');
+    if (tokenNode) { tokenVal = tokenNode.value; } 
+    else if (typeof L !== 'undefined' && L.env && L.env.token) { tokenVal = L.env.token; } 
+    else { var match = document.cookie.match(/(?:^|;)\s*sysauth_http=([^;]+)/) || document.cookie.match(/(?:^|;)\s*sysauth=([^;]+)/); if (match) tokenVal = match[1]; }
     
-    var tokenVal = '';
-    var tokenNode = document.querySelector('input[name="token"]');
-    if (tokenNode) {
-        tokenVal = tokenNode.value;
-    } else if (typeof L !== 'undefined' && L.env && L.env.token) {
-        tokenVal = L.env.token;
-    } else {
-        var match = document.cookie.match(/(?:^|;)\s*sysauth_http=([^;]+)/) || document.cookie.match(/(?:^|;)\s*sysauth=([^;]+)/);
-        if (match) tokenVal = match[1];
-    }
-    
-    if (tokenVal) {
-        var t = document.createElement('input'); 
-        t.type = 'hidden'; t.name = 'token'; t.value = tokenVal; 
-        form.appendChild(t);
-    }
-    
+    if (tokenVal) { var t = document.createElement('input'); t.type = 'hidden'; t.name = 'token'; t.value = tokenVal; form.appendChild(t); }
     document.body.appendChild(form); form.submit(); 
 }
 
@@ -914,7 +762,7 @@ function showImportModal() {
         document.getElementById('btn_csv_import').addEventListener('click', submitImport);
         document.getElementById('btn_csv_cancel').addEventListener('click', closeModals);
     }
-    document.getElementById('csv_file_input').value = ""; document.getElementById('csv_file_name_display').innerText = "No file selected"; document.getElementById('csv_text_area').value = ""
+    document.getElementById('csv_file_input').value = ""; document.getElementById('csv_file_name_display').innerText = "No file selected"; document.getElementById('csv_text_area').value = "";
     m.classList.add('active'); document.body.classList.add('qr-modal-open');
 }
 
@@ -923,7 +771,6 @@ function fixTabIsolation() {
     if (!userTable || !anchor) return; if (window._telemtTabFixed && userTable.parentNode) return; window._telemtTabFixed = true;
     
     anchor.style.display = 'none';
-    
     var tabPane = anchor.closest('.cbi-tab') || anchor.closest('[data-tab]'); 
     var targetNode = tabPane || anchor.parentNode;
     if (!targetNode) return; if (userTable.parentNode !== targetNode) { targetNode.appendChild(userTable); }
@@ -931,7 +778,6 @@ function fixTabIsolation() {
     
     if (!document.getElementById('telemt_users_dashboard_panel')) {
         var dash = document.createElement('div'); dash.id = 'telemt_users_dashboard_panel';
-        
         var topRow = document.createElement('div'); topRow.className = 'telemt-dash-top-row';
         var sumInner = document.createElement('div'); sumInner.id = 'telemt_users_summary_inner'; sumInner.className = 'telemt-dash-summary'; topRow.appendChild(sumInner);
         var btnsTop = document.createElement('div'); btnsTop.className = 'telemt-dash-btns';
@@ -943,19 +789,13 @@ function fixTabIsolation() {
         var btnsBot = document.createElement('div'); btnsBot.className = 'telemt-action-btns';
         var btnExpCsv = document.createElement('input'); btnExpCsv.type = 'button'; btnExpCsv.className = 'cbi-button cbi-button-action'; btnExpCsv.value = 'Export Users (CSV)'; btnExpCsv.addEventListener('click', doExportCSV); btnsBot.appendChild(btnExpCsv);
         var btnImpCsv = document.createElement('input'); btnImpCsv.type = 'button'; btnImpCsv.className = 'cbi-button cbi-button-apply'; btnImpCsv.value = 'Import Users (CSV)'; btnImpCsv.addEventListener('click', showImportModal); btnsBot.appendChild(btnImpCsv);
-        botRow.appendChild(btnsBot);
-        dash.appendChild(botRow);
+        botRow.appendChild(btnsBot); dash.appendChild(botRow);
         
         var warnMsg = document.createElement('div'); warnMsg.className = 'telemt-dash-warn'; warnMsg.innerText = 'Important: You must create at least one user for the proxy to start!'; dash.appendChild(warnMsg);
         targetNode.insertBefore(dash, userTable);
     }
 }
 
-// ------------------------------------------------------------------------------
-// TEMPLATE ROW GUARD
-// Prevents the "Leave empty to auto-generate" ghost-row flash.
-// Identifies framework-rendered blank rows across OWrt 21-25.
-// ------------------------------------------------------------------------------
 function isTemplateRow(row) {
     if (!row) return true;
     if (row.classList.contains('cbi-row-template')) return true;
@@ -967,18 +807,6 @@ function isTemplateRow(row) {
 
 function injectUI() {
     fixTabIsolation();
-    
-    // NATIVE COLUMN STRATEGY: Safely rename the native header without breaking DOM
-    // This approach guarantees compatibility with OpenWrt 25 VDOM by reusing the built-in Name cell.
-    var firstTh = document.querySelector('#cbi-telemt-user .cbi-section-table-titles th:first-child') || 
-                  document.querySelector('#cbi-telemt-user thead th:first-child');
-    if (firstTh && !firstTh.dataset.renamed) {
-        var txt = (firstTh.textContent || '').trim().toLowerCase();
-        if (txt === 'name' || txt === 'название' || txt === '') {
-            firstTh.textContent = 'User';
-            firstTh.dataset.renamed = "1";
-        }
-    }
     
     var btnAdd = document.querySelector('.cbi-button-add'); if (btnAdd && btnAdd.value !== 'Add user') btnAdd.value = 'Add user';
     var newNameInp = document.querySelector('.cbi-section-create-name'); if(newNameInp && !newNameInp.dataset.maxInjected) { newNameInp.dataset.maxInjected = "1"; newNameInp.maxLength = 15; newNameInp.placeholder = "a-z, 0-9, _ (no dashes)"; }
@@ -1002,6 +830,45 @@ function injectUI() {
         var linkWrap = row.querySelector('.link-wrapper');
         if (!secInp || niList.length === 0 || !linkWrap) return;
         row.dataset.injected = "1";
+        
+        -- Extract username cleanly
+        var match = secInp.name.match(/cbid\.telemt\.([^.]+)\.secret/);
+        var uName = match ? match[1] : '?';
+
+        -- THE BULLETPROOF CHECK: 
+        -- Look strictly inside the very first cell of the row.
+        -- If the first cell contains our 'Secret' input, it means VDOM destroyed the Name column!
+        var firstCell = row.firstElementChild;
+        var isFallbackMode = false;
+        if (firstCell && firstCell.contains(secInp)) {
+            isFallbackMode = true;
+        }
+
+        if (isFallbackMode) {
+            var secretTd = secInp.closest('td');
+            if (secretTd) {
+                var nameDiv = secretTd.querySelector('.telemt-fallback-name');
+                if (!nameDiv) {
+                    nameDiv = document.createElement('div');
+                    nameDiv.className = 'telemt-fallback-name telemt-user-col-text';
+                    nameDiv.style.cssText = 'margin-bottom: 6px; font-size: 1.1em; font-family: monospace; display: block; color: #005ce6 !important; font-weight: bold !important;';
+                    secretTd.insertBefore(nameDiv, secretTd.firstChild);
+                }
+                nameDiv.innerText = '[ user: ' + uName + ' ]'; 
+            }
+        } else {
+            if (firstCell) {
+                var span = firstCell.querySelector('.telemt-user-col-text');
+                if (!span) {
+                    span = document.createElement('span');
+                    span.className = 'telemt-user-col-text';
+                    span.style.cssText = 'color: #005ce6 !important; font-weight: bold !important;';
+                    firstCell.innerHTML = '';
+                    firstCell.appendChild(span);
+                }
+                span.innerText = uName;
+            }
+        }
         
         if(secInp) {
             if(secInp.value.trim() === "") { secInp.value = genRandHex(); secInp.dispatchEvent(new Event('change', {bubbles: true})); }
@@ -1087,4 +954,3 @@ if (document.readyState === 'loading') { document.addEventListener('DOMContentLo
 ]] .. (m.description or "")
 
 return m
-
