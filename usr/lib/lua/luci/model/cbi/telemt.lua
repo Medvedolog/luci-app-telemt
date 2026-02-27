@@ -831,13 +831,13 @@ function injectUI() {
         if (!secInp || niList.length === 0 || !linkWrap) return;
         row.dataset.injected = "1";
         
-        -- Extract username cleanly
+        // Extract username cleanly
         var match = secInp.name.match(/cbid\.telemt\.([^.]+)\.secret/);
         var uName = match ? match[1] : '?';
 
-        -- THE BULLETPROOF CHECK: 
-        -- Look strictly inside the very first cell of the row.
-        -- If the first cell contains our 'Secret' input, it means VDOM destroyed the Name column!
+        // THE BULLETPROOF CHECK: 
+        // Look strictly inside the very first cell of the row.
+        // If the first cell contains our 'Secret' input, it means VDOM destroyed the Name column!
         var firstCell = row.firstElementChild;
         var isFallbackMode = false;
         if (firstCell && firstCell.contains(secInp)) {
