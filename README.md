@@ -68,3 +68,27 @@
     </td>
   </tr>
 </table>
+<h2 align="center">🖼️ Interface Screenshots</h2>
+
+<table width="100%" style="border-collapse: collapse; border: none;">
+  <tr>
+    <td width="50%" valign="top" align="center" style="border: none; padding: 10px;">
+      <small><b>General Settings</b></small><br><br>
+      <img src="https://github.com/user-attachments/assets/4ef2530a-36d1-4722-b7b0-d223914f2579" width="100%" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+    </td>
+    <td width="50%" valign="top" align="center" style="border: none; padding: 10px;">
+      <small><b>Advanced Tuning and ME</b></small><br><br>
+      <img src="https://github.com/user-attachments/assets/32e216d6-a46e-4485-b4e8-a20d9b114692" width="100%" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top" align="center" style="border: none; padding: 10px;">
+      <small><b>Users Management and Dash</b></small><br><br>
+      <img src="https://github.com/user-attachments/assets/540a81b8-de08-4383-a906-79a3056caeb6" width="100%" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+    </td>
+    <td width="50%" valign="top" align="center" style="border: none; padding: 10px;">
+      <small><b>Diagnostic LOG</b></small><br><br>
+      <img src="https://github.com/user-attachments/assets/e064960a-2c28-4ca0-aee2-bd5e56943544" width="100%" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+    </td>
+  </tr>
+</table>
