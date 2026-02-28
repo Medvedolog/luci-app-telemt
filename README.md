@@ -1,5 +1,3 @@
-# luci-app-telemt - OpenWrt Web Interface for telemt MTProxy service
-
 <table width="100%">
   <tr>
     <th width="50%">🇷🇺 Русский</th>
@@ -17,11 +15,12 @@
       <ul>
         <li><b>ОС:</b> OpenWrt 21.02 — 25.xx (полная поддержка VDOM)</li>
         <li><b>Зависимости:</b> <code>luci-base</code>, <code>luci-compat</code>, <code>ca-bundle</code>, <code>qrencode</code> (для генерации QR-кодов)</li>
-        <li><b>Движок:</b> бинарный файл <code>telemt</code> <b>версии 3.0.15 или 3.1.x+ LTS</b> (<a href="https://github.com/Medvedolog/telemt/releases">Скачать релизы</a>).</li>
+        <li><b>Движок:</b> бинарный файл <code>telemt</code> <b>версии 3.1.3+</b> (<a href="https://github.com/Medvedolog/telemt/releases">Скачать релизы</a>).</li>
       </ul>
       <b>Ключевые возможности:</b>
       <ul>
-        <li><b>Умный Firewall (Magic):</b> Автоматическое открытие портов в оперативной памяти средствами <code>procd</code> без захламления основного конфига Firewall.</li>
+        <li><b>Строгое соответствие telemt 3.1.X:</b> Генератор формирует актуальеный "плоский" TOML, с нормализацией IP/CIDR-сетей для Prometheus метрик и валидацией SOCKS5-апстримов.</li>
+        <li><b>Умный Firewall (Magic):</b> Автоматическое открытие портов в оперативной памяти средствами <code>procd</code> без захламления основного конфига Firewall, проверка статуса порта</li>
         <li><b>Пользователи и Квоты:</b> Индивидуальные лимиты по трафику (GB), количеству сессий (TCP Conns), числу уникальных IP и дате истечения подписки.</li>
         <li><b>Живая статистика:</b> Встроенный парсер Prometheus-метрик. Показывает текущий онлайн, скорость и суммарный трафик по каждому юзеру. Данные сохраняются при перезагрузке сервиса.</li>
         <li><b>Управление базой:</b> Экспорт и импорт пользователей списком через CSV-файлы прямо в браузере.</li>
@@ -29,9 +28,10 @@
       </ul>
       <b>Поддерживаемые секции TOML:</b>
       <ul>
-        <li><code>[general]</code>: Режимы (tls, secure, classic), продвинутый Middle-End Proxy (warm standby, hardswap, pool size), авто-деградация (auto-degradation), спонсорский <code>ad_tag</code>.</li>
-        <li><code>[server]</code>: Назначение портов (в т.ч. метрик), IPv4/IPv6, <code>announce_ip</code>.</li>
-        <li><code>[timeouts]</code> & <code>[access]</code>: Тонкая настройка таймаутов, <code>replay_window_secs</code>, длина FakeTLS сертификатов (<code>fake_cert_len</code>).</li>
+        <li><code>[general]</code>: Режимы (tls, secure, classic), продвинутый Middle-End Proxy, авто-деградация и спонсорский <code>ad_tag</code>.</li>
+        <li><code>[network]</code>: Современная подсистема STUN (массив серверов, TCP fallback) и выбор предпочтительного протокола (IPv4/IPv6).</li>
+        <li><code>[server]</code>: Назначение портов (в т.ч. метрик), плоский формат <code>listen_addr</code>, <code>announce_ip</code>.</li>
+        <li><code>[censorship]</code> & <code>[timeouts]</code>: Тонкая настройка таймаутов, длина FakeTLS сертификатов, <code>replay_window_secs</code> и <code>mask_proxy_protocol</code> (для HAProxy/Nginx).</li>
         <li><code>[upstreams]</code>: Выбор маршрутизации (Direct или SOCKS5 с авторизацией).</li>
       </ul>
     </td>
@@ -46,10 +46,11 @@
       <ul>
         <li><b>OS:</b> OpenWrt 21.02 — 25.xx (full VDOM compatibility)</li>
         <li><b>Dependencies:</b> <code>luci-base</code>, <code>luci-compat</code>, <code>ca-bundle</code>, <code>qrencode</code> (for QR generation)</li>
-        <li><b>Engine:</b> <code>telemt</code> binary <b>version 3.0.15 or 3.1.x+ LTS</b> (<a href="https://github.com/Medvedolog/telemt/releases">Download releases</a>).</li>
+        <li><b>Engine:</b> <code>telemt</code> binary <b>version 3.1.3+</b> (<a href="https://github.com/Medvedolog/telemt/releases">Download releases</a>).</li>
       </ul>
       <b>Key Features:</b>
       <ul>
+        <li><b>Strict 3.1.3 Compliance:</b> Generates perfectly modern, flat TOML files without deprecated arrays, featuring smart IP/CIDR normalization for Prometheus and strict SOCKS5 upstream validation.</li>
         <li><b>Smart Firewall (Magic):</b> Automatically opens necessary ports in RAM via the <code>procd</code> API without cluttering your main firewall rules.</li>
         <li><b>Users & Quotas:</b> Set individual limits for data usage (GB), max TCP connections, max unique IPs, and subscription expiration dates.</li>
         <li><b>Live Statistics:</b> Built-in Prometheus metrics parser. Displays online status, bandwidth, and total traffic per user. Stats survive service restarts.</li>
@@ -58,9 +59,10 @@
       </ul>
       <b>Supported TOML Sections:</b>
       <ul>
-        <li><code>[general]</code>: Protocol modes (tls, secure, classic), advanced Middle-End Proxy tuning (warm standby, hardswap, pool size), auto-degradation, and <code>ad_tag</code>.</li>
-        <li><code>[server]</code>: Port binding, IPv4/IPv6 listeners, metrics whitelist, and <code>announce_ip</code>.</li>
-        <li><code>[timeouts]</code> & <code>[access]</code>: Timeout adjustments, <code>replay_window_secs</code>, and FakeTLS certificate tuning (<code>fake_cert_len</code>).</li>
+        <li><code>[general]</code>: Protocol modes (tls, secure, classic), advanced Middle-End Proxy tuning, auto-degradation, and <code>ad_tag</code>.</li>
+        <li><code>[network]</code>: Modernized STUN subsystem (server arrays, TCP fallback) and preferred IP protocol selection (IPv4/IPv6).</li>
+        <li><code>[server]</code>: Port binding, flat <code>listen_addr</code> formats, metrics whitelist, and <code>announce_ip</code>.</li>
+        <li><code>[censorship]</code> & <code>[timeouts]</code>: Timeout adjustments, FakeTLS certificate tuning, <code>replay_window_secs</code>, and <code>mask_proxy_protocol</code> (for HAProxy/Nginx setups).</li>
         <li><code>[upstreams]</code>: Routing selection (Direct or SOCKS5 with authentication).</li>
       </ul>
     </td>
