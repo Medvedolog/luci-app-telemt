@@ -1,4 +1,4 @@
-<h2 align="center">luci-app-telemt - OpenWrt Web Interface for telemt MTProxy service</h2>
+<h2 align="center">🌌 luci-app-telemt - OpenWrt Web Interface for telemt MTProxy service</h2>
    <br>
 <table width="100%">
   <tr>
