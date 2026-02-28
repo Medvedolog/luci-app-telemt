@@ -1,5 +1,5 @@
 <h2 align="center">luci-app-telemt - OpenWrt Web Interface for telemt MTProxy service</h2>
-   <br><br>
+   <br>
 <table width="100%">
   <tr>
     <th width="50%">🇷🇺 Русский</th>
@@ -69,7 +69,7 @@
       </ul>
     </td>
   </tr>
-</table>
+</table>  <br><br>
 <h2 align="center">🖼️ Interface Screenshots</h2>
 
 <table width="100%" style="border-collapse: collapse; border: none;">
