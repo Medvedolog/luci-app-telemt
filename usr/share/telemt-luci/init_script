@@ -1,7 +1,7 @@
 #!/bin/sh /etc/rc.common
 # ==============================================================================
 # Telemt MTProxy Service Management Script (Procd Init)
-#
+# Version: 3.1.3-1
 # Responsibilities:
 # 1. Parse OpenWrt UCI configuration and generate a minimal 'config.toml'.
 # 2. Manage the daemon lifecycle via procd (start, stop, respawn limits).
@@ -254,13 +254,8 @@ metrics_port = $metrics_port
 metrics_whitelist = [$wl_toml]
 TOML
 
-    # Smart STUN Fallback: Feed IP to listener directly if probing is disabled
     if [ "$listen_ipv4" -eq 1 ]; then 
-        if [ "$use_stun" -eq 0 ] && [ -n "$announce_ip" ]; then
-            printf '\n[[server.listeners]]\nip = "0.0.0.0"\nannounce = "%s"\n' "$announce_ip" >> "$TMP_CONF"
-        else
-            echo "listen_addr_ipv4 = \"0.0.0.0\"" >> "$TMP_CONF"
-        fi
+        echo "listen_addr_ipv4 = \"0.0.0.0\"" >> "$TMP_CONF"
     fi
 
     if [ "$listen_ipv6" -eq 1 ]; then 
@@ -307,7 +302,7 @@ TOML
     if [ -s "$TMP_EXP" ]; then printf '\n[access.user_expirations]\n' >> "$TMP_CONF"; cat "$TMP_EXP" >> "$TMP_CONF"; fi
     
     if [ "$use_socks" -eq 1 ]; then
-        printf '\n[[upstreams]]\ntype = "socks5"\naddress = "%s"\nenabled = true\nweight = 1\n' "$socks_addr" >> "$TMP_CONF"
+        printf '\n[[upstreams]]\ntype = "socks5"\naddress = "%s"\nenabled = true\nweight = 10\n' "$socks_addr" >> "$TMP_CONF"
         if [ -n "$socks_user" ] && [ -n "$socks_pass" ]; then printf 'username = "%s"\npassword = "%s"\n' "$socks_user" "$socks_pass" >> "$TMP_CONF"; fi
     else
         printf '\n[[upstreams]]\ntype = "direct"\nenabled = true\nweight = 10\n' >> "$TMP_CONF"

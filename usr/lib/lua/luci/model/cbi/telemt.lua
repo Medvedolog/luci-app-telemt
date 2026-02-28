@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- Telemt CBI Model (Configuration Binding Interface)
--- Version: 3.1.2-3 (Golden Master - Strict UI Branches)
+-- Version: 3.1.3-1
 -- 
 -- Architecture:
 -- - Map: Connects to '/etc/config/telemt' and automatically handles I/O.
@@ -238,7 +238,7 @@ if not is_ajax then
     end
 end
 
-m = Map("telemt", "Telegram Proxy (MTProto)", [[Multi-user proxy server based on <a href="https://github.com/telemt/telemt" target="_blank" style="text-decoration:none; color:inherit; font-weight:bold; border-bottom: 1px dotted currentColor;">telemt</a>.<br><b>LuCI App Version: <a href="https://github.com/Medvedolog/luci-app-telemt" target="_blank" style="text-decoration:none; color:inherit; border-bottom: 1px dotted currentColor;">3.1.2-3</a></b> | <span style='color:#d35400; font-weight:bold;'>Requires telemt v3.0.15+</span>]])
+m = Map("telemt", "Telegram Proxy (MTProto)", [[Multi-user proxy server based on <a href="https://github.com/telemt/telemt" target="_blank" style="text-decoration:none; color:inherit; font-weight:bold; border-bottom: 1px dotted currentColor;">telemt</a>.<br><b>LuCI App Version: <a href="https://github.com/Medvedolog/luci-app-telemt" target="_blank" style="text-decoration:none; color:inherit; border-bottom: 1px dotted currentColor;">3.1.3-1</a></b> | <span style='color:#d35400; font-weight:bold;'>Requires telemt v3.0.15+</span>]])
 
 m.on_commit = function(self) 
     sys.call("logger -t telemt 'WebUI: Config saved. Dumping stats before procd reload...'")
@@ -413,7 +413,7 @@ local t_exp = s2:option(Value, "expire_date", "Expire Date" .. tip("Format: DD.M
 function t_exp.validate(self, value) if not value then return "" end value = value:match("^%s*(.-)%s*$"); if value == "" or value == "unlimited" then return "" end if not value:match("^%d%d%.%d%d%.%d%d%d%d %d%d:%d%d$") then return nil, "Format: DD.MM.YYYY HH:MM" end return value end
 
 local lst = s2:option(DummyValue, "_stat", "Live Traffic" .. tip("Accumulated usage & sessions")); lst.rawhtml = true; function lst.cfgvalue(self, section) return string.format('<div class="user-flat-stat" data-user="%s"><span style="color:#888;">No Data</span></div>', section:gsub("[<>&\"']", "")) end
-local lnk = s2:option(DummyValue, "_link", "Ready-to-use link" .. tip("Click the link to copy it.")); lnk.rawhtml = true; lnk.default = [[<div class="link-wrapper"><input type="text" class="cbi-input-text user-link-out" readonly onclick="this.select()"></div>]]
+local lnk = s2:option(DummyValue, "_link", "Ready-to-use link" .. tip("Click the link to copy it.")); lnk.rawhtml = true; function lnk.cfgvalue(self, section) return [[<div class="link-wrapper"><input type="text" class="cbi-input-text user-link-out" readonly onclick="this.select()"></div>]] end
 
 m.description = [[
 <style>
