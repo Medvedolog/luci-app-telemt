@@ -1,12 +1,18 @@
 -- ==============================================================================
 -- Telemt CBI Model (Configuration Binding Interface)
--- Version: 3.1.4-11 (Epoch 1) - GOLDEN MASTER (3.1.3 AJAX + VDOM CSRF PATCHES)
+-- Version: 3.1.4-12 (Epoch 1) - BULLETPROOF AJAX, NO EMOJI, NATIVE BUTTONS
 -- ==============================================================================
 
 local sys = require "luci.sys"
 local http = require "luci.http"
 local dsp = require "luci.dispatcher"
 local uci_cursor = require("luci.model.uci").cursor()
+
+-- Универсальный стоп-кран для AJAX: глушит 436 ошибки и запрещает рендер подвала
+local function end_ajax()
+    pcall(function() if dsp.context then dsp.context.dispatched = true end end)
+    pcall(function() http.close() end)
+end
 
 local function has_cmd(c) return (sys.call("command -v " .. c .. " >/dev/null 2>&1") == 0) end
 local fetch_bin = nil; if has_cmd("wget") then fetch_bin = "wget" elseif has_cmd("uclient-fetch") then fetch_bin = "uclient-fetch" end
@@ -28,14 +34,16 @@ local safe_url = current_url:gsub('"', '\\"'):gsub('<', '&lt;'):gsub('>', '&gt;'
 local function tip(txt) return string.format([[<span class="telemt-tip" title="%s">(?)</span>]], txt:gsub('"', '&quot;')) end
 
 -- ==============================================================================
--- AJAX DISPATCHER (Strictly 3.1.3 Method: http.close() + return)
+-- AJAX DISPATCHER (Bulletproof Mode)
 -- ==============================================================================
 local is_post = (http.getenv("REQUEST_METHOD") == "POST")
 
 if is_post and http.formvalue("log_ui_event") == "1" then
     local msg = http.formvalue("msg")
     if msg then sys.call(string.format("logger -t telemt %q", "WebUI: " .. msg:gsub("[%c]", " "):gsub("[^A-Za-z0-9 _.%-%:]", ""):sub(1, 128))) end
-    http.prepare_content("text/plain"); http.write("ok"); http.close(); return
+    http.prepare_content("text/plain")
+    pcall(function() http.write("ok") end)
+    end_ajax(); return
 end
 
 if is_post and http.formvalue("auto_pause_user") then
@@ -46,7 +54,9 @@ if is_post and http.formvalue("auto_pause_user") then
         sys.call(string.format("logger -t telemt 'WebUI: Auto-paused user %s (Reason: %s)'", u, reason))
         sys.call("/etc/init.d/telemt reload >/dev/null 2>&1 &")
     end
-    http.prepare_content("text/plain"); http.write("ok"); http.close(); return
+    http.prepare_content("text/plain")
+    pcall(function() http.write("ok") end)
+    end_ajax(); return
 end
 
 if is_post and http.formvalue("reset_stats") == "1" then sys.call("logger -t telemt 'WebUI: Executed manual Reset Traffic Stats'; rm -f /tmp/telemt_stats.txt") end
@@ -59,9 +69,8 @@ if is_post and http.formvalue("export_config") == "1" then
     if conf == "" then conf = "# telemt.toml not found or empty\n" end
     http.prepare_content("application/toml")
     http.header("Content-Disposition", "attachment; filename=\"telemt.toml\"")
-    http.write(conf)
-    http.close()
-    return
+    pcall(function() http.write(conf) end)
+    end_ajax(); return
 end
 
 if http.formvalue("get_fw_status") == "1" then
@@ -77,9 +86,8 @@ if http.formvalue("get_fw_status") == "1" then
     elseif is_procd_open and is_running then status_msg = "<span style='color:green; font-weight:bold'>OPEN (OK)</span>"; tip_msg = "(Visible via ubus API)" end
     if not is_running then status_msg = "<span style='color:#d9534f; font-weight:bold'>SERVICE STOPPED</span> <span style='color:#888'>|</span> " .. status_msg end
     http.prepare_content("text/plain")
-    http.write(status_msg .. (tip_msg ~= "" and " <span style='color:#888; font-size:0.85em; margin-left:5px;'>" .. tip_msg .. "</span>" or ""))
-    http.close()
-    return
+    pcall(function() http.write(status_msg .. (tip_msg ~= "" and " <span style='color:#888; font-size:0.85em; margin-left:5px;'>" .. tip_msg .. "</span>" or "")) end)
+    end_ajax(); return
 end
 
 if http.formvalue("get_metrics") == "1" then
@@ -92,9 +100,8 @@ if http.formvalue("get_metrics") == "1" then
     local f = io.open("/tmp/telemt_stats.txt", "r")
     if f then metrics = metrics .. "\n# ACCUMULATED\n"; for line in f:lines() do local u, tx, rx = line:match("^(%S+) (%S+) (%S+)$"); if u then metrics = metrics .. string.format("telemt_accumulated_tx{user=\"%s\"} %s\ntelemt_accumulated_rx{user=\"%s\"} %s\n", u, tx, u, rx) end end; f:close() end
     http.prepare_content("text/plain")
-    http.write(metrics)
-    http.close()
-    return
+    pcall(function() http.write(metrics) end)
+    end_ajax(); return
 end
 
 if http.formvalue("get_scanners") == "1" then
@@ -103,9 +110,8 @@ if http.formvalue("get_scanners") == "1" then
     local res = sys.exec(string.format("%s 'http://127.0.0.1:%d/beobachten' 2>/dev/null", fetch_cmd, m_port))
     if not res or res:gsub("%s+", "") == "" then res = "No active scanners detected or proxy is offline." end
     http.prepare_content("text/plain")
-    http.write(res)
-    http.close()
-    return
+    pcall(function() http.write(res) end)
+    end_ajax(); return
 end
 
 if http.formvalue("get_log") == "1" then
@@ -113,9 +119,8 @@ if http.formvalue("get_log") == "1" then
     if has_cmd("timeout") then cmd = "timeout 2 " .. cmd end
     local log_data = sys.exec(cmd); if not log_data or log_data:gsub("%s+", "") == "" then log_data = "No logs found." end
     http.prepare_content("text/plain")
-    http.write(log_data:gsub("\27%[[%d;]*m", ""))
-    http.close()
-    return
+    pcall(function() http.write(log_data:gsub("\27%[[%d;]*m", "")) end)
+    end_ajax(); return
 end
 
 if http.formvalue("get_wan_ip") == "1" then
@@ -123,25 +128,23 @@ if http.formvalue("get_wan_ip") == "1" then
     local ip = (sys.exec(fetch_cmd .. " https://ipv4.internet.yandex.net/api/v0/ip 2>/dev/null") or ""):gsub("%s+", ""):gsub("\"", "")
     if not ip:match("^%d+%.%d+%.%d+%.%d+$") then ip = (sys.exec(fetch_cmd .. " https://checkip.amazonaws.com 2>/dev/null") or ""):gsub("%s+", "") end
     http.prepare_content("text/plain")
-    http.write(ip:match("^%d+%.%d+%.%d+%.%d+$") and ip or "0.0.0.0")
-    http.close()
-    return
+    pcall(function() http.write(ip:match("^%d+%.%d+%.%d+%.%d+$") and ip or "0.0.0.0") end)
+    end_ajax(); return
 end
 
 if http.formvalue("get_qr") == "1" then
     local link = http.formvalue("link")
     if not link or link == "" or not link:match("^tg://proxy%?[a-zA-Z0-9=%%&_.-]+$") then 
-        http.prepare_content("text/plain"); http.write("error: invalid_link"); http.close(); return 
+        http.prepare_content("text/plain"); pcall(function() http.write("error: invalid_link") end); end_ajax(); return 
     end
     if not has_cmd("qrencode") then 
-        http.prepare_content("text/plain"); http.write("error: qrencode_missing"); http.close(); return 
+        http.prepare_content("text/plain"); pcall(function() http.write("error: qrencode_missing") end); end_ajax(); return 
     end
     local cmd = string.format("qrencode -t SVG -s 4 -m 1 -o - %q 2>/dev/null", link)
     if has_cmd("timeout") then cmd = "timeout 2 " .. cmd end
     http.prepare_content("image/svg+xml")
-    http.write(sys.exec(cmd))
-    http.close()
-    return
+    pcall(function() http.write(sys.exec(cmd)) end)
+    end_ajax(); return
 end
 
 local function norm_secret(s) if not s then return nil end; s = s:match("secret=(%x+)") or s; local hex = s:match("(%x+)"); if not hex then return nil end; local pfx = hex:sub(1,2):lower(); if pfx == "ee" or pfx == "dd" then hex = hex:sub(3) end; if #hex < 32 then return nil end; return hex:sub(1, 32):lower() end
@@ -189,7 +192,7 @@ if not is_ajax then
     else bin_info = string.format("<small style='opacity: 0.6;'>%s (v%s)</small>", bin_path, (read_file("/var/etc/telemt.version"):gsub("%s+", "")) == "" and "unknown" or (read_file("/var/etc/telemt.version"):gsub("%s+", ""))) end
 end
 
-m = Map("telemt", "Telegram Proxy (MTProto)", [[Multi-user proxy server based on <a href="https://github.com/telemt/telemt" target="_blank" style="text-decoration:none; color:inherit; font-weight:bold; border-bottom: 1px dotted currentColor;">telemt</a>.<br><b>LuCI App Version: <a href="https://github.com/Medvedolog/luci-app-telemt" target="_blank" style="text-decoration:none; color:inherit; border-bottom: 1px dotted currentColor;">3.1.4-11</a></b> | <span style='color:#d35400; font-weight:bold;'>Requires telemt v3.0.15+</span>]])
+m = Map("telemt", "Telegram Proxy (MTProto)", [[Multi-user proxy server based on <a href="https://github.com/telemt/telemt" target="_blank" style="text-decoration:none; color:inherit; font-weight:bold; border-bottom: 1px dotted currentColor;">telemt</a>.<br><b>LuCI App Version: <a href="https://github.com/Medvedolog/luci-app-telemt" target="_blank" style="text-decoration:none; color:inherit; border-bottom: 1px dotted currentColor;">3.1.4-12</a></b> | <span style='color:#d35400; font-weight:bold;'>Requires telemt v3.0.15+</span>]])
 m.on_commit = function(self) sys.call("logger -t telemt 'WebUI: Config saved. Dumping stats before procd reload...'; /etc/init.d/telemt run_save_stats 2>/dev/null") end
 
 s = m:section(NamedSection, "general", "telemt")
@@ -269,7 +272,7 @@ local ll = s:taboption("general", ListValue, "log_level", "Log Level" .. tip("Ve
 local up_anchor = s:taboption("upstreams", DummyValue, "_up_anchor", ""); up_anchor.rawhtml = true; up_anchor.default = '<div id="upstreams_tab_anchor" style="display:none"></div>'
 local up_master = s:taboption("upstreams", Flag, "enable_upstreams", "Enable All Cascades" .. tip("Master switch for Upstream Proxies. Disabling this ignores the list below.")); up_master.default = "1"
 
-s_up = m:section(TypedSection, "upstream", "Upstream Proxies (Cascades)", "Chain your outgoing Telegram traffic through other servers (e.g. to bypass ISP DPI).<br><b>Note:</b> If no upstreams are enabled, the proxy will fallback to <b>Direct connection</b>.")
+s_up = m:section(TypedSection, "upstream", "Upstream Proxies (Cascades)", "Chain your outgoing Telegram traffic through other servers to bypass ISP DPI.<br><span style='color:#555;'><b>Note:</b> If no upstreams are enabled, the proxy will gracefully fallback to <b>Direct Connection</b>.</span>")
 s_up.addremove = true; s_up.anonymous = true
 
 local u_lbl = s_up:option(Value, "alias", "Cascade Name" .. tip("Optional. Latin letters, numbers and spaces only."))
@@ -391,14 +394,6 @@ html body #cbi-telemt-user .cbi-button-add:hover, html body #cbi-telemt-upstream
 
 #cbi-telemt-user .cbi-section-table td:first-child { vertical-align: middle !important; }
 
-/* DELETE BUTTON FIX - EXACT WIDTH LIMITS FOR DESKTOP (USERS) */
-#cbi-telemt-user .cbi-section-table .cbi-button-remove:not(.telemt-btn-cross), #cbi-telemt-user td.cbi-section-actions .cbi-button-remove:not(.telemt-btn-cross) { 
-    color: #d9534f !important; background-color: transparent !important; border: 1px solid #d9534f !important; transition: all 0.2s ease !important; 
-    padding: 0 12px !important; height: 30px !important; line-height: 28px !important; font-weight: normal !important; 
-    width: auto !important; min-width: 80px !important; max-width: 120px !important; white-space: nowrap !important; display: inline-block !important; flex: 0 0 auto !important; margin: 0 auto !important;
-}
-#cbi-telemt-user .cbi-section-table .cbi-button-remove:not(.telemt-btn-cross):hover { background-color: #d9534f !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
-
 /* Upstreams Block Fix (Cards and Buttons - STRICT BOTTOM LEFT) */
 #cbi-telemt-upstream .cbi-section-node-row,
 #cbi-telemt-upstream > div:not([id$="-template"]) {
@@ -420,7 +415,7 @@ html body #cbi-telemt-user .cbi-button-add:hover, html body #cbi-telemt-upstream
     width: 100% !important;
     text-align: left !important;
 }
-html body #cbi-telemt-upstream .cbi-button-remove { display: inline-block !important; float: none !important; margin: 0 !important; color: #d9534f !important; background-color: transparent !important; border: 1px solid #d9534f !important; padding: 0 12px !important; height: 30px !important; line-height: 28px !important; font-weight: normal !important; transition: all 0.2s ease !important; }
+html body #cbi-telemt-upstream .cbi-button-remove { display: inline-block !important; float: left !important; margin: 0 !important; color: #d9534f !important; background-color: transparent !important; border: 1px solid #d9534f !important; padding: 0 12px !important; height: 30px !important; line-height: 28px !important; font-weight: normal !important; transition: all 0.2s ease !important; }
 html body #cbi-telemt-upstream .cbi-button-remove:hover { background-color: #d9534f !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
 
 /* ADVANCED TUNING SPOILERS WIDTH FIX */
@@ -574,7 +569,7 @@ function fetchMetrics() {
             var finalTx = stat.live_tx + stat.acc_tx; var finalRx = stat.live_rx + stat.acc_rx; if (stat.conns > 0) usersOnline++;
             
             var qStr = statEl.getAttribute('data-q'); var eStr = statEl.getAttribute('data-e'); var isEn = statEl.getAttribute('data-en');
-            if (isEn === "0") { statEl.innerHTML = "<span style='color:#888; font-weight:bold;'>[⏸️ Paused]</span>"; return; }
+            if (isEn === "0") { statEl.innerHTML = "<span style='color:#888; font-weight:bold;'>[ PAUSED ]</span>"; return; }
             
             var isExpired = false;
             if (eStr) { var p = eStr.split(' '); if(p.length==2) { var d=p[0].split('.'); var t=p[1].split(':'); if(d.length==3 && t.length==2) { if (Date.now() > new Date(d[2], d[1]-1, d[0], t[0], t[1]).getTime()) isExpired = true; } } }
@@ -597,7 +592,7 @@ function fetchMetrics() {
                     fetch(lu_current_url.split('#')[0], { method: 'POST', body: f });
                     statEl.setAttribute('data-en', '0');
                 }
-                statEl.innerHTML = "<span style='color:#d9534f; font-weight:bold;'>[" + (isExpired ? "⏱️ Expired" : "🛑 Quota") + "]</span>"; return; 
+                statEl.innerHTML = "<span style='color:#d9534f; font-weight:bold;'>[" + (isExpired ? "EXPIRED" : "QUOTA") + "]</span>"; return; 
             }
             
             var c_col = stat.conns > 0 ? "#00a000" : "#888"; 
@@ -611,7 +606,7 @@ function fetchMetrics() {
         
         var sumEl = document.getElementById('telemt_users_summary_inner');
         if (sumEl) {
-            var dpiHtml = "<span class='sum-divider'>|</span><span><b style='color:#555;'>🛡️ DPI Probes:</b> <span style='color:" + (globalStatsObj.dpi > 0 ? "#d9534f" : "#00a000") + "; font-weight:bold; margin-left:4px;'>" + globalStatsObj.dpi + "</span></span>";
+            var dpiHtml = "<span class='sum-divider'>|</span><span><span style='font-weight:bold; color:#555;'>[DPI Probes]</span> <span style='color:" + (globalStatsObj.dpi > 0 ? "#d9534f" : "#00a000") + "; font-weight:bold; margin-left:4px;'>" + globalStatsObj.dpi + "</span></span>";
             if (txt.trim() === "") { sumEl.innerHTML = "<span style='color:#d9534f; font-weight:bold;'>Status: Offline</span><span class='sum-divider'>|</span><span><b style='color:#555;'>Total DL:</b> <span style='color:#00a000;'>&darr; " + formatMB(totalTx) + "</span></span><span class='sum-divider'>|</span><span><b style='color:#555;'>Total UL:</b> <span style='color:#d35400;'>&uarr; " + formatMB(totalRx) + "</span></span><span class='sum-divider'>|</span><span><b style='color:#555;'>Users Online:</b> <b style='color:#888; margin-left:4px;'>0</b><span style='margin:0 4px;'>/</span>" + totalConfiguredUsers + "</span>" + dpiHtml; } 
             else { sumEl.innerHTML = "<b style='margin-right:6px;'>Uptime:</b><span style='color:#666;'>" + formatUptime(globalStatsObj.uptime) + "</span><span class='sum-divider'>|</span><span><b style='color:#555;'>Total DL:</b> <span style='color:#00a000;'>&darr; " + formatMB(totalTx) + "</span></span><span class='sum-divider'>|</span><span><b style='color:#555;'>Total UL:</b> <span style='color:#d35400;'>&uarr; " + formatMB(totalRx) + "</span></span><span class='sum-divider'>|</span><span><b style='color:#555;'>Bandwidth:</b> <span style='color:#00a000;'>&darr; " + speedDL.toFixed(2) + "</span> <span style='color:#d35400; margin-left:4px;'>&uarr; " + speedUL.toFixed(2) + "</span> <small>Mbps</small></span><span class='sum-divider'>|</span><span><b style='color:#555;'>Users Online:</b> <b style='color:#00a000; margin-left:4px;'>" + usersOnline + "</b><span style='margin:0 4px;'>/</span>" + totalConfiguredUsers + "</span>" + dpiHtml; }
         }
@@ -639,7 +634,7 @@ function genRandHex() { var arr = new Uint8Array(16); (window.crypto || window.m
 function fetchIPViaWget(btn) { var oldVal = btn.value; btn.value = '...'; fetch(lu_current_url.split('#')[0] + (lu_current_url.indexOf('?') > -1 ? '&' : '?') + 'get_wan_ip=1&_t=' + Date.now()).then(r => r.text()).then(txt => { txt = cleanResponse(txt); var match = txt.match(/\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/); if (match) { var master = document.querySelector('input[name*="cbid.telemt.general.external_ip"]'); var mirror = document.getElementById('telemt_mirror_ip'); if(master) master.value = match[0]; if(mirror) mirror.value = match[0]; updateLinks(); } btn.value = oldVal; }).catch(() => { btn.value = oldVal; }); }
 
 function loadLog() { var btn = document.getElementById('btn_load_log'); if(!btn) return; var oldVal = btn.value; btn.value = 'Loading...'; fetch(lu_current_url.split('#')[0] + (lu_current_url.indexOf('?') > -1 ? '&' : '?') + 'get_log=1&_t=' + Date.now()).then(r => r.text()).then(txt => { document.getElementById('telemt_log_container').textContent = cleanResponse(txt) || 'No logs found.'; btn.value = 'System Log'; }).catch(() => { btn.value = 'Error'; }); }
-function loadScanners() { var btn = document.getElementById('btn_load_scanners'); if(!btn) return; var oldVal = btn.value; btn.value = 'Loading...'; fetch(lu_current_url.split('#')[0] + (lu_current_url.indexOf('?') > -1 ? '&' : '?') + 'get_scanners=1&_t=' + Date.now()).then(r => r.text()).then(txt => { document.getElementById('telemt_log_container').textContent = "=== 🛡️ ACTIVE DPI SCANNERS (beobachten.txt) ===\n\n" + (cleanResponse(txt) || 'No data.'); btn.value = 'Refresh Scanners'; }).catch(() => { btn.value = 'Error'; }); }
+function loadScanners() { var btn = document.getElementById('btn_load_scanners'); if(!btn) return; var oldVal = btn.value; btn.value = 'Loading...'; fetch(lu_current_url.split('#')[0] + (lu_current_url.indexOf('?') > -1 ? '&' : '?') + 'get_scanners=1&_t=' + Date.now()).then(r => r.text()).then(txt => { document.getElementById('telemt_log_container').textContent = "=== [ ACTIVE DPI SCANNERS (beobachten.txt) ] ===\n\n" + (cleanResponse(txt) || 'No data.'); btn.value = 'Refresh Scanners'; }).catch(() => { btn.value = 'Error'; }); }
 function copyLogContent(btn) { var logText = document.getElementById('telemt_log_container').textContent; if(!logText) return; var ta = document.createElement('textarea'); ta.value = logText; document.body.appendChild(ta); ta.select(); try { if(document.execCommand('copy')) { var oldVal = btn.value; btn.value = 'Copied!'; setTimeout(function(){ btn.value = oldVal; }, 1500); } } catch(e) {} document.body.removeChild(ta); }
 
 function updateFWStatus() { if (!document.getElementById('cbi-telemt-general')) return; var fwSpan = document.getElementById('fw_status_span'); if (!fwSpan) return; fetch(lu_current_url.split('#')[0] + (lu_current_url.indexOf('?') > -1 ? '&' : '?') + 'get_fw_status=1&_t=' + Date.now()).then(r => r.text()).then(txt => { txt = cleanResponse(txt); if(txt.indexOf('OPEN') > -1 || txt.indexOf('CLOSED') > -1 || txt.indexOf('STOPPED') > -1) fwSpan.innerHTML = txt; }).catch(()=>{}); }
@@ -752,9 +747,12 @@ function injectUI() {
             var updateTitle = function() {
                 var vName = (nameInput && nameInput.value.trim() !== "") ? nameInput.value.trim() : '';
                 var vAddr = (addrInput && addrInput.value.trim() !== "") ? addrInput.value.trim() : '';
-                var dash1 = vName ? ' — ' + vName : '';
-                var dash2 = vAddr ? ' <span style="color:#888; font-weight:normal; font-size:0.9em;">(' + vAddr + ')</span>' : '';
-                titleSpan.innerHTML = 'Cascade #' + (index + 1) + dash1 + dash2;
+                var text = 'Cascade #' + (index + 1);
+                if (vName || vAddr) {
+                    text += ' — ' + (vName ? vName : 'Unnamed');
+                    if (vAddr) text += ' (' + vAddr + ')';
+                }
+                titleSpan.innerHTML = text;
             };
             
             updateTitle();
@@ -768,7 +766,7 @@ function injectUI() {
                 toggleSpan.innerHTML = isHidden ? '&#9660;' : '&#9654;';
             });
             
-            // ENSURE DELETE BUTTON IS BOTTOM LEFT (PATCH 5)
+            // ENSURE DELETE BUTTON IS BOTTOM LEFT
             var parent = row.parentElement;
             var rmDiv = parent ? (parent.querySelector(':scope > .cbi-section-remove') || null) : null;
             if (!rmDiv) {
