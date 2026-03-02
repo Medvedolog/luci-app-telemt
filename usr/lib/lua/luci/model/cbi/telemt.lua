@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- Telemt CBI Model (Configuration Binding Interface)
--- Version: 3.1.4-9 (Epoch 1) - UCODE TERMINATOR, CASCADE UI & LOGIC
+-- Version: 3.1.4-10 (Epoch 1) - 3.1.3 AJAX, CONFIG EXPORT & UI POLISH
 -- ==============================================================================
 
 local sys = require "luci.sys"
@@ -13,7 +13,7 @@ local fetch_bin = nil; if has_cmd("wget") then fetch_bin = "wget" elseif has_cmd
 
 local function read_file(path)
     local f = io.open(path, "r"); if not f then return "" end
-    local d = f:read("*all") or ""; f:close(); return (d:gsub("%s+", ""))
+    local d = f:read("*all") or ""; f:close(); return d
 end
 
 local is_owrt25_lua = "false"
@@ -28,28 +28,14 @@ local safe_url = current_url:gsub('"', '\\"'):gsub('<', '&lt;'):gsub('>', '&gt;'
 local function tip(txt) return string.format([[<span class="telemt-tip" title="%s">(?)</span>]], txt:gsub('"', '&quot;')) end
 
 -- ==============================================================================
--- AJAX DISPATCHER (BULLETPROOF UCODE KILLER)
+-- AJAX DISPATCHER (Strictly 3.1.3 Method)
 -- ==============================================================================
 local is_post = (http.getenv("REQUEST_METHOD") == "POST")
-
--- Абсолютно надежное прерывание процесса с отдачей данных (лечит 500 и 502)
-local function raw_reply(data, content_type)
-    http.prepare_content(content_type or "text/plain")
-    io.stdout:write(data or "")
-    io.stdout:flush() -- Отправляет данные uhttpd до смерти процесса
-    os.exit(0)
-end
-
-local function clean_redirect(url)
-    http.header("Location", url); http.status(302, "Found")
-    io.stdout:flush()
-    os.exit(0)
-end
 
 if is_post and http.formvalue("log_ui_event") == "1" then
     local msg = http.formvalue("msg")
     if msg then sys.call(string.format("logger -t telemt %q", "WebUI: " .. msg:gsub("[%c]", " "):gsub("[^A-Za-z0-9 _.%-%:]", ""):sub(1, 128))) end
-    raw_reply("ok")
+    http.prepare_content("text/plain"); http.write("ok"); return
 end
 
 if is_post and http.formvalue("auto_pause_user") then
@@ -60,15 +46,23 @@ if is_post and http.formvalue("auto_pause_user") then
         sys.call(string.format("logger -t telemt 'WebUI: Auto-paused user %s (Reason: %s)'", u, reason))
         sys.call("/etc/init.d/telemt reload >/dev/null 2>&1 &")
     end
-    raw_reply("ok")
+    http.prepare_content("text/plain"); http.write("ok"); return
 end
 
-if is_post and http.formvalue("reset_stats") == "1" then sys.call("logger -t telemt 'WebUI: Executed manual Reset Traffic Stats'; rm -f /tmp/telemt_stats.txt"); clean_redirect(current_url) end
-if is_post and http.formvalue("start") == "1" then sys.call("logger -t telemt 'WebUI: Manual START service requested'; /etc/init.d/telemt start"); clean_redirect(current_url) end
-if is_post and http.formvalue("stop") == "1" then sys.call("logger -t telemt 'WebUI: Manual STOP service requested'; /etc/init.d/telemt run_save_stats; /etc/init.d/telemt stop; sleep 1; pidof telemt >/dev/null && killall -9 telemt 2>/dev/null"); clean_redirect(current_url) end
-if is_post and http.formvalue("restart") == "1" then sys.call("logger -t telemt 'WebUI: Manual RESTART service requested'; /etc/init.d/telemt run_save_stats; /etc/init.d/telemt stop; sleep 1; pidof telemt >/dev/null && killall -9 telemt 2>/dev/null; /etc/init.d/telemt start"); clean_redirect(current_url) end
+-- Кнопки управления (Без редиректа, чтобы не ломать токен при Apply)
+if is_post and http.formvalue("reset_stats") == "1" then sys.call("logger -t telemt 'WebUI: Executed manual Reset Traffic Stats'; rm -f /tmp/telemt_stats.txt") end
+if is_post and http.formvalue("start") == "1" then sys.call("logger -t telemt 'WebUI: Manual START service requested'; /etc/init.d/telemt start") end
+if is_post and http.formvalue("stop") == "1" then sys.call("logger -t telemt 'WebUI: Manual STOP service requested'; /etc/init.d/telemt run_save_stats; /etc/init.d/telemt stop; sleep 1; pidof telemt >/dev/null && killall -9 telemt 2>/dev/null") end
+if is_post and http.formvalue("restart") == "1" then sys.call("logger -t telemt 'WebUI: Manual RESTART service requested'; /etc/init.d/telemt run_save_stats; /etc/init.d/telemt stop; sleep 1; pidof telemt >/dev/null && killall -9 telemt 2>/dev/null; /etc/init.d/telemt start") end
 
-local is_ajax = (http.formvalue("get_metrics") or http.formvalue("get_fw_status") or http.formvalue("get_log") or http.formvalue("get_scanners") or http.formvalue("get_wan_ip") or http.formvalue("get_qr"))
+if http.formvalue("export_config") == "1" then
+    local conf = read_file("/var/etc/telemt.toml")
+    if conf == "" then conf = "# telemt.toml not found or empty\n" end
+    http.prepare_content("application/toml")
+    http.header("Content-Disposition", "attachment; filename=\"telemt.toml\"")
+    http.write(conf)
+    return
+end
 
 if http.formvalue("get_fw_status") == "1" then
     local afw = uci_cursor:get("telemt", "general", "auto_fw") or "0"
@@ -81,7 +75,9 @@ if http.formvalue("get_fw_status") == "1" then
     if is_physically_open then status_msg = "<span style='color:green; font-weight:bold'>OPEN (OK)</span>"; tip_msg = (afw == "0") and "(Auto-FW off, but port is open)" or ""
     elseif is_procd_open and is_running then status_msg = "<span style='color:green; font-weight:bold'>OPEN (OK)</span>"; tip_msg = "(Visible via ubus API)" end
     if not is_running then status_msg = "<span style='color:#d9534f; font-weight:bold'>SERVICE STOPPED</span> <span style='color:#888'>|</span> " .. status_msg end
-    raw_reply(status_msg .. (tip_msg ~= "" and " <span style='color:#888; font-size:0.85em; margin-left:5px;'>" .. tip_msg .. "</span>" or ""))
+    http.prepare_content("text/plain")
+    http.write(status_msg .. (tip_msg ~= "" and " <span style='color:#888; font-size:0.85em; margin-left:5px;'>" .. tip_msg .. "</span>" or ""))
+    return
 end
 
 if http.formvalue("get_metrics") == "1" then
@@ -93,7 +89,9 @@ if http.formvalue("get_metrics") == "1" then
     end
     local f = io.open("/tmp/telemt_stats.txt", "r")
     if f then metrics = metrics .. "\n# ACCUMULATED\n"; for line in f:lines() do local u, tx, rx = line:match("^(%S+) (%S+) (%S+)$"); if u then metrics = metrics .. string.format("telemt_accumulated_tx{user=\"%s\"} %s\ntelemt_accumulated_rx{user=\"%s\"} %s\n", u, tx, u, rx) end end; f:close() end
-    raw_reply(metrics)
+    http.prepare_content("text/plain")
+    http.write(metrics)
+    return
 end
 
 if http.formvalue("get_scanners") == "1" then
@@ -101,30 +99,38 @@ if http.formvalue("get_scanners") == "1" then
     local fetch_cmd = (fetch_bin == "wget") and "wget -q --timeout=3 -O -" or "uclient-fetch -q --timeout=3 -O -"
     local res = sys.exec(string.format("%s 'http://127.0.0.1:%d/beobachten' 2>/dev/null", fetch_cmd, m_port))
     if not res or res:gsub("%s+", "") == "" then res = "No active scanners detected or proxy is offline." end
-    raw_reply(res)
+    http.prepare_content("text/plain")
+    http.write(res)
+    return
 end
 
 if http.formvalue("get_log") == "1" then
     local cmd = "logread -e 'telemt' | tail -n 50 2>/dev/null"
     if has_cmd("timeout") then cmd = "timeout 2 " .. cmd end
     local log_data = sys.exec(cmd); if not log_data or log_data:gsub("%s+", "") == "" then log_data = "No logs found." end
-    raw_reply(log_data:gsub("\27%[[%d;]*m", ""))
+    http.prepare_content("text/plain")
+    http.write(log_data:gsub("\27%[[%d;]*m", ""))
+    return
 end
 
 if http.formvalue("get_wan_ip") == "1" then
     local fetch_cmd = (fetch_bin == "wget") and "wget -q --timeout=3 -O -" or "uclient-fetch -q --timeout=3 -O -"
     local ip = (sys.exec(fetch_cmd .. " https://ipv4.internet.yandex.net/api/v0/ip 2>/dev/null") or ""):gsub("%s+", ""):gsub("\"", "")
     if not ip:match("^%d+%.%d+%.%d+%.%d+$") then ip = (sys.exec(fetch_cmd .. " https://checkip.amazonaws.com 2>/dev/null") or ""):gsub("%s+", "") end
-    raw_reply(ip:match("^%d+%.%d+%.%d+%.%d+$") and ip or "0.0.0.0")
+    http.prepare_content("text/plain")
+    http.write(ip:match("^%d+%.%d+%.%d+%.%d+$") and ip or "0.0.0.0")
+    return
 end
 
 if http.formvalue("get_qr") == "1" then
     local link = http.formvalue("link")
-    if not link or link == "" or not link:match("^tg://proxy%?[a-zA-Z0-9=%%&_.-]+$") then raw_reply("error: invalid_link"); end
-    if not has_cmd("qrencode") then raw_reply("error: qrencode_missing"); end
+    if not link or link == "" or not link:match("^tg://proxy%?[a-zA-Z0-9=%%&_.-]+$") then http.prepare_content("text/plain"); http.write("error: invalid_link"); return end
+    if not has_cmd("qrencode") then http.prepare_content("text/plain"); http.write("error: qrencode_missing"); return end
     local cmd = string.format("qrencode -t SVG -s 4 -m 1 -o - %q 2>/dev/null", link)
     if has_cmd("timeout") then cmd = "timeout 2 " .. cmd end
-    raw_reply(sys.exec(cmd), "image/svg+xml")
+    http.prepare_content("image/svg+xml")
+    http.write(sys.exec(cmd))
+    return
 end
 
 local function norm_secret(s) if not s then return nil end; s = s:match("secret=(%x+)") or s; local hex = s:match("(%x+)"); if not hex then return nil end; local pfx = hex:sub(1,2):lower(); if pfx == "ee" or pfx == "dd" then hex = hex:sub(3) end; if #hex < 32 then return nil end; return hex:sub(1, 32):lower() end
@@ -155,10 +161,10 @@ if is_post and http.formvalue("import_users") == "1" then
             end
             uci_cursor:save("telemt"); uci_cursor:commit("telemt")
             sys.call("logger -t telemt \"WebUI: Successfully imported " .. #valid_users .. " users via CSV.\"")
-            clean_redirect(current_url .. (current_url:match("?") and "&" or "?") .. "import_ok=" .. tostring(#valid_users))
+            http.redirect(current_url .. (current_url:match("?") and "&" or "?") .. "import_ok=" .. tostring(#valid_users)); return
         end
     end
-    clean_redirect(current_url)
+    http.redirect(current_url); return
 end
 
 local clean_csv = "username,secret,max_tcp_conns,max_unique_ips,data_quota,expire_date\n"
@@ -169,10 +175,10 @@ local bin_info = ""
 if not is_ajax then
     local bin_path = (sys.exec("command -v telemt 2>/dev/null") or ""):gsub("%s+", "")
     if bin_path == "" then bin_info = "<span style='color:#d9534f; font-weight:bold; font-size:0.9em;'>Not installed (telemt binary not found)</span>"
-    else bin_info = string.format("<small style='opacity: 0.6;'>%s (v%s)</small>", bin_path, read_file("/var/etc/telemt.version") == "" and "unknown" or read_file("/var/etc/telemt.version")) end
+    else bin_info = string.format("<small style='opacity: 0.6;'>%s (v%s)</small>", bin_path, (read_file("/var/etc/telemt.version"):gsub("%s+", "")) == "" and "unknown" or (read_file("/var/etc/telemt.version"):gsub("%s+", ""))) end
 end
 
-m = Map("telemt", "Telegram Proxy (MTProto)", [[Multi-user proxy server based on <a href="https://github.com/telemt/telemt" target="_blank" style="text-decoration:none; color:inherit; font-weight:bold; border-bottom: 1px dotted currentColor;">telemt</a>.<br><b>LuCI App Version: <a href="https://github.com/Medvedolog/luci-app-telemt" target="_blank" style="text-decoration:none; color:inherit; border-bottom: 1px dotted currentColor;">3.1.4-9</a></b> | <span style='color:#d35400; font-weight:bold;'>Requires telemt v3.0.15+</span>]])
+m = Map("telemt", "Telegram Proxy (MTProto)", [[Multi-user proxy server based on <a href="https://github.com/telemt/telemt" target="_blank" style="text-decoration:none; color:inherit; font-weight:bold; border-bottom: 1px dotted currentColor;">telemt</a>.<br><b>LuCI App Version: <a href="https://github.com/Medvedolog/luci-app-telemt" target="_blank" style="text-decoration:none; color:inherit; border-bottom: 1px dotted currentColor;">3.1.4-10</a></b> | <span style='color:#d35400; font-weight:bold;'>Requires telemt v3.0.15+</span>]])
 m.on_commit = function(self) sys.call("logger -t telemt 'WebUI: Config saved. Dumping stats before procd reload...'; /etc/init.d/telemt run_save_stats 2>/dev/null") end
 
 s = m:section(NamedSection, "general", "telemt")
@@ -325,7 +331,7 @@ local bc = s:taboption("bot", Value, "bot_chat_id", "Admin Chat ID" .. tip("Your
 
 -- === TAB: DIAGNOSTICS ===
 local lv = s:taboption("log", DummyValue, "_lv"); lv.rawhtml = true
-lv.default = [[<div style="width:100%; box-sizing:border-box; height:500px; font-family:monospace; font-size:12px; padding:12px; background: #1e1e1e; color: #d4d4d4; border: 1px solid #333; border-radius: 4px; overflow-y:auto; overflow-x:auto; white-space:pre;" id="telemt_log_container">Click a button below to load data.</div><div style="margin-top:10px; display:flex; gap:10px;"><input type="button" class="cbi-button cbi-button-apply" id="btn_load_log" value="System Log" /><input type="button" class="cbi-button cbi-button-reset" id="btn_load_scanners" value="Show Active Scanners" /><input type="button" class="cbi-button cbi-button-action" id="btn_copy_log" value="Copy Output" /></div><script>setTimeout(function(){ document.getElementById('btn_load_log').addEventListener('click', loadLog); document.getElementById('btn_load_scanners').addEventListener('click', loadScanners); document.getElementById('btn_copy_log').addEventListener('click', function(){ copyLogContent(this); }); }, 500);</script>]]
+lv.default = [[<div style="width:100%; box-sizing:border-box; height:500px; font-family:monospace; font-size:12px; padding:12px; background: #1e1e1e; color: #d4d4d4; border: 1px solid #333; border-radius: 4px; overflow-y:auto; overflow-x:auto; white-space:pre;" id="telemt_log_container">Click a button below to load data.</div><div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;"><input type="button" class="cbi-button cbi-button-apply" id="btn_load_log" value="System Log" /><input type="button" class="cbi-button cbi-button-reset" id="btn_load_scanners" value="Show Active Scanners" /><input type="button" class="cbi-button cbi-button-action" id="btn_copy_log" value="Copy Output" /><input type="button" class="cbi-button cbi-button-neural" id="btn_export_config" value="Export active config" style="background:#4a90e2; color:#fff; border:1px solid #357abd;" /></div><script>setTimeout(function(){ document.getElementById('btn_load_log').addEventListener('click', loadLog); document.getElementById('btn_load_scanners').addEventListener('click', loadScanners); document.getElementById('btn_copy_log').addEventListener('click', function(){ copyLogContent(this); }); document.getElementById('btn_export_config').addEventListener('click', function(){ window.location.href = lu_current_url.split('#')[0] + (lu_current_url.indexOf('?') > -1 ? '&' : '?') + 'export_config=1'; }); }, 500);</script>]]
 
 -- === TAB: USERS ===
 local anchor = s:taboption("users", DummyValue, "_users_anchor", ""); anchor.rawhtml = true; anchor.default = '<div id="users_tab_anchor" style="display:none"></div>'
@@ -393,7 +399,7 @@ html body #cbi-telemt-user .cbi-button-add:hover, html body #cbi-telemt-upstream
     width: 100% !important;
     text-align: left !important;
 }
-html body #cbi-telemt-upstream .cbi-button-remove { display: inline-block !important; float: none !important; margin: 0 !important; color: #d9534f !important; background-color: transparent !important; border: 1px solid #d9534f !important; padding: 0 12px !important; height: 30px !important; line-height: 28px !important; font-weight: normal !important; transition: all 0.2s ease !important; }
+html body #cbi-telemt-upstream .cbi-button-remove { display: inline-block !important; float: left !important; margin: 0 !important; color: #d9534f !important; background-color: transparent !important; border: 1px solid #d9534f !important; padding: 0 12px !important; height: 30px !important; line-height: 28px !important; font-weight: normal !important; transition: all 0.2s ease !important; }
 html body #cbi-telemt-upstream .cbi-button-remove:hover { background-color: #d9534f !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
 
 /* ADVANCED TUNING SPOILERS WIDTH FIX */
