@@ -1,50 +1,25 @@
 #!/bin/sh
-# ==============================================================================
-# Post-Installation Script
-# Neutralizes old standalone configs, sets up LuCI default paths, and reloads RPC.
-# ==============================================================================
 [ "${IPKG_NO_SCRIPT}" = "1" ] && exit 0
+echo "========================================================"
+echo " Configuring telemt core v3.2.2-1 "
+echo "========================================================"
 
-echo "======================================================================"
-echo " Configuring luci-app-telemt v3.1.2 (PreLTS) "
-echo "======================================================================"
-
+# 1. Мягко убиваем любые запущенные "левые" процессы telemt (Защита от совпадений имени с ботом)
 echo "[*] Checking for running standalone telemt processes..."
-if pidof telemt >/dev/null 2>&1; then
+t_pid=$(pidof telemt | awk '{print $1}')
+if [ -n "$t_pid" ]; then
     /etc/init.d/telemt stop 2>/dev/null || true
-    killall -9 telemt 2>/dev/null || true
+    kill -9 "$t_pid" 2>/dev/null || true
 fi
 
-echo "[*] Checking for standalone configuration folder (/etc/telemt)..."
+# 2. Изолируем старые ручные конфиги, чтобы юзер их не потерял, но они не мешали UCI
+echo "[*] Checking for standalone configuration folders..."
 if [ -d "/etc/telemt" ]; then
     mv /etc/telemt /etc/telemt.disabled_by_luci 2>/dev/null || true
+    echo "    -> Moved /etc/telemt to /etc/telemt.disabled_by_luci"
 fi
 
-echo "[*] Installing smart init script and enabling service..."
-cp -f /usr/share/telemt-luci/init_script /etc/init.d/telemt
-chmod +x /etc/init.d/telemt
-
+# 3. Включаем службу
+echo "[*] Enabling telemt service..."
 /etc/init.d/telemt enable 2>/dev/null || true
-
-echo "[*] Verifying metrics port configuration..."
-if [ "$(uci -q get telemt.general.metrics_port)" = "9090" ]; then
-    uci set telemt.general.metrics_port='9091'
-    uci commit telemt 2>/dev/null || true
-fi
-
-echo "[*] Configuring UCI defaults..."
-if [ ! -f "/etc/config/telemt" ]; then
-    cp /usr/share/telemt-luci/default_config /etc/config/telemt
-    chmod 600 /etc/config/telemt
-    /sbin/reload_config 2>/dev/null || true
-    uci commit telemt 2>/dev/null || true
-fi
-
-echo "[*] Cleaning up LuCI cache..."
-rm -f /usr/share/luci/menu.d/luci-app-telemt.json
-rm -rf /tmp/luci-modulecache/
-rm -f /tmp/luci-indexcache
-
-echo "[*] Reloading RPCD..."
-/etc/init.d/rpcd reload 2>/dev/null || true
 exit 0
