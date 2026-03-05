@@ -1,25 +1,33 @@
 #!/bin/sh
 [ "${IPKG_NO_SCRIPT}" = "1" ] && exit 0
 echo "========================================================"
-echo " Configuring telemt core v3.2.2-1 "
+echo " Configuring luci-app-telemt v3.2.2-1 "
 echo "========================================================"
 
-# 1. Мягко убиваем любые запущенные "левые" процессы telemt (Защита от совпадений имени с ботом)
-echo "[*] Checking for running standalone telemt processes..."
-t_pid=$(pidof telemt | awk '{print $1}')
-if [ -n "$t_pid" ]; then
-    /etc/init.d/telemt stop 2>/dev/null || true
-    kill -9 "$t_pid" 2>/dev/null || true
+# 1. Проверяем наличие бинарника ядра
+if ! command -v telemt >/dev/null 2>&1; then
+    echo "⚠️ WARNING: 'telemt' core package is missing!"
+    echo "⚠️ The WebUI requires the core binary to run the proxy."
 fi
 
-# 2. Изолируем старые ручные конфиги, чтобы юзер их не потерял, но они не мешали UCI
-echo "[*] Checking for standalone configuration folders..."
-if [ -d "/etc/telemt" ]; then
-    mv /etc/telemt /etc/telemt.disabled_by_luci 2>/dev/null || true
-    echo "    -> Moved /etc/telemt to /etc/telemt.disabled_by_luci"
+# 2. ЖЕСТКАЯ ПРОВЕРКА базы данных (защита от "чужих" репозиториев)
+if [ ! -f "/etc/config/telemt" ]; then
+    echo "⚠️ CRITICAL WARNING: /etc/config/telemt not found!"
+    echo "⚠️ The WebUI will be empty and non-functional."
+    echo "⚠️ You MUST install the 'telemt' core package from our repository"
+    echo "⚠️ because this LuCI app uses the OpenWrt UCI database, not raw .toml files!"
 fi
 
-# 3. Включаем службу
-echo "[*] Enabling telemt service..."
-/etc/init.d/telemt enable 2>/dev/null || true
+# 3. Информационное сообщение о боте
+if [ ! -x "/usr/libexec/telemt-bot.sh" ]; then
+    echo "ℹ️ INFO: 'telemt-bot' package is not installed."
+    echo "ℹ️ Install it if you want to autonomously manage the proxy via Telegram."
+fi
+echo "========================================================"
+
+# 4. Обновляем кэши LuCI
+echo "[*] Cleaning LuCI cache and reloading RPCD..."
+rm -rf /tmp/luci-modulecache/
+rm -f /tmp/luci-indexcache
+/etc/init.d/rpcd reload 2>/dev/null || true
 exit 0
