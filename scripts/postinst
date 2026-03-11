@@ -1,10 +1,10 @@
 #!/bin/sh
 echo ""
 echo "================================================================="
-echo " Installing luci-app-telemt WebUI (v3.3.10 LTS)"
+echo " Installing luci-app-telemt WebUI (v3.3.15)"
 echo "================================================================="
 
-# Cheching for standalone telemt
+# Checking for standalone telemt
 if [ ! -x "/usr/bin/telemt" ]; then
     echo " WARNING: Headless telemt binary was NOT found!"
     echo " The WebUI requires the core daemon to function properly."
@@ -12,7 +12,7 @@ if [ ! -x "/usr/bin/telemt" ]; then
     echo " https://github.com/Medvedolog/telemt-openwrt/"
 else
     echo " OK: telemt binary found."
-    echo " REMINDER: This WebUI requires telemt core version >= 3.3.3."
+    echo " REMINDER: This WebUI is optimized for telemt core version >= 3.3.15."
     echo " You can always download the latest core IPK/APK from:"
     echo " https://github.com/Medvedolog/telemt-openwrt/"
 fi
