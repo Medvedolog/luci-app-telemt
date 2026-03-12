@@ -1,217 +1,48 @@
-# ==============================================================================
-# Build Script Version: 3.3.15 (Headless + Init Scripts + Port Migration)
-# Description: Automated build and packaging (IPK/APK) for Headless Telemt.
-# ==============================================================================
-
-name: Build and Release Headless Telemt (aarch64-musl)
+name: Build and Release OpenWrt Packages
 
 on:
   push:
     tags:
-      - '3.3.*'
-      - '[4-9]*'
-  
+      - 'v*' # Срабатывает только при создании тега (например, v3.1.0-4)
   workflow_dispatch:
-    inputs:
-      build_target:
-        description: 'Enter tag (e.g., 3.3.15) or branch (main)'
-        required: true
-        default: '3.3.15'
+
+# ВАЖНО: Разрешаем экшену запись в репозиторий, чтобы он мог создать релиз
+permissions:
+  contents: write
 
 jobs:
-  release:
-    name: Build and Release
+  build-and-release:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write 
-
     steps:
-      - name: Extract version
-        id: vars
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "VERSION=${{ github.event.inputs.build_target }}" >> $GITHUB_ENV
-          elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-          else
-            echo "VERSION=nightly" >> $GITHUB_ENV
-          fi
-
-      - name: Checkout local repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Checkout upstream repository (Telemt source)
-        uses: actions/checkout@v4
+      - name: Setup nFPM
+        run: |
+          echo 'deb [trusted=yes] https://repo.goreleaser.com/apt/ /' | sudo tee /etc/apt/sources.list.d/goreleaser.list
+          sudo apt-get update
+          sudo apt-get install -y nfpm
+
+      - name: Build IPK and APK
+        run: |
+          nfpm pkg --packager ipk
+          nfpm pkg --packager apk
+
+      # Этот шаг загружает артефакты (оставляем для истории сборок)
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
         with:
-          repository: 'telemt/telemt'
-          ref: ${{ env.VERSION }}
-          path: 'upstream_src'
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-unknown-linux-musl
-
-      - name: Install cross and nFPM
-        run: |
-          CROSS_TAG=$(curl -sL https://api.github.com/repos/cross-rs/cross/releases/latest | jq -r .tag_name)
-          curl -sSfL "https://github.com/cross-rs/cross/releases/download/${CROSS_TAG}/cross-x86_64-unknown-linux-musl.tar.gz" | tar -xz
-          sudo mv cross /usr/local/bin/
-          
-          NFPM_TAG=$(curl -sL https://api.github.com/repos/goreleaser/nfpm/releases/latest | jq -r .tag_name)
-          NFPM_VER=${NFPM_TAG#v}
-          curl -sSfL "https://github.com/goreleaser/nfpm/releases/download/${NFPM_TAG}/nfpm_${NFPM_VER}_Linux_x86_64.tar.gz" | tar -xz
-          sudo mv nfpm /usr/local/bin/
-
-      - name: Build binary with cross
-        run: |
-          cd upstream_src
-          export CARGO_PROFILE_RELEASE_OPT_LEVEL=z
-          export CARGO_PROFILE_RELEASE_LTO=true
-          export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1
-          export CARGO_PROFILE_RELEASE_PANIC=abort
-          export CARGO_PROFILE_RELEASE_STRIP=true
-          cross build --release --target aarch64-unknown-linux-musl
-
-      - name: Install UPX and dos2unix
-        run: sudo apt-get update && sudo apt-get install -y upx-ucl dos2unix
-
-      - name: Compress with UPX
-        run: upx --best --lzma upstream_src/target/aarch64-unknown-linux-musl/release/telemt
-
-      - name: Append version string & Move binary
-        run: |
-          printf "\nMTProxy v%s\n" "${{ env.VERSION }}" >> upstream_src/target/aarch64-unknown-linux-musl/release/telemt
-          mv upstream_src/target/aarch64-unknown-linux-musl/release/telemt telemt-aarch64-musl
-
-      - name: Fix CRLF line endings in scripts
-        run: |
-          # CRITICAL FIX: prevents "sh: /etc/init.d/telemt: not found" error on OpenWrt
-          dos2unix files/telemt.init files/telemt.config
-
-      - name: Build IPK and APK packages with nFPM
-        run: |
-          export PKG_VER="${{ env.VERSION }}"
-          ARCHS=("aarch64_generic" "aarch64_cortex-a53")
-          
-          cat > postinst.sh <<EOF
-          #!/bin/sh
-          echo ""
-          echo "================================================================="
-          echo " Installed Headless Telemt version ${PKG_VER}"
-          echo " To manage via LuCI WebUI, install: "
-          echo " https://github.com/Medvedolog/luci-app-telemt"
-          echo "================================================================="
-          if pidof telemt >/dev/null 2>&1; then killall -9 telemt 2>/dev/null || true; fi
-          if [ -d "/etc/telemt" ]; then mv /etc/telemt /etc/telemt.disabled_by_luci 2>/dev/null || true; fi
-          old_metrics=\$(uci -q get telemt.general.metrics_port)
-          if [ "\$old_metrics" = "9091" ] || [ "\$old_metrics" = "9090" ]; then
-              uci set telemt.general.metrics_port='9092'
-              uci set telemt.general.api_port='9091'
-              uci commit telemt 2>/dev/null || true
-          fi
-          /etc/init.d/telemt enable 2>/dev/null || true
-          exit 0
-          EOF
-          
-          cat > prerm.sh <<EOF
-          #!/bin/sh
-          /etc/init.d/telemt disable 2>/dev/null || true
-          /etc/init.d/telemt stop 2>/dev/null || true
-          exit 0
-          EOF
-
-          cat > postrm.sh <<EOF
-          #!/bin/sh
-          rm -f /var/etc/telemt.toml
-          rm -f /var/etc/telemt.version
-          rm -f /tmp/telemt_stats.txt
-          exit 0
-          EOF
-          
-          chmod 755 postinst.sh prerm.sh postrm.sh
-
-          # Custom Description requested
-          export PKG_DESC="Advanced MTProto telemt proxy with FakeTLS in a tiny, highly-optimized variant for OpenWrt. (Headless Core Daemon + Init Scripts)"
-
-          # Build IPKs
-          export SOURCE_DATE_EPOCH=1704067200
-          for ARCH in "${ARCHS[@]}"; do
-            export PKG_ARCH=$ARCH
-            cat > nfpm_ipk.yaml <<EOF
-          name: telemt
-          arch: ${PKG_ARCH}
-          platform: linux
-          version: ${PKG_VER}
-          maintainer: Telemt Team
-          description: "${PKG_DESC}"
-          contents:
-            - src: ./telemt-aarch64-musl
-              dst: /usr/bin/telemt
-              file_info:
-                mode: 0755
-                mtime: 2024-01-01T00:00:00Z
-            - src: ./files/telemt.init
-              dst: /etc/init.d/telemt
-              file_info:
-                mode: 0755
-                mtime: 2024-01-01T00:00:00Z
-            - src: ./files/telemt.config
-              dst: /etc/config/telemt
-              type: config
-              file_info:
-                mode: 0644
-                mtime: 2024-01-01T00:00:00Z
-          scripts:
-            postinstall: ./postinst.sh
-            preremove: ./prerm.sh
-            postremove: ./postrm.sh
-          EOF
-            nfpm pkg --config nfpm_ipk.yaml --packager ipk --target "telemt_${PKG_VER}_${PKG_ARCH}.ipk"
-          done
-
-          # Build APKs
-          unset SOURCE_DATE_EPOCH
-          for ARCH in "${ARCHS[@]}"; do
-            export PKG_ARCH=$ARCH
-            cat > nfpm_apk.yaml <<EOF
-          name: telemt
-          arch: ${PKG_ARCH}
-          platform: linux
-          version: ${PKG_VER}
-          maintainer: Telemt Team
-          description: "${PKG_DESC}"
-          contents:
-            - src: ./telemt-aarch64-musl
-              dst: /usr/bin/telemt
-              file_info:
-                mode: 0755
-            - src: ./files/telemt.init
-              dst: /etc/init.d/telemt
-              file_info:
-                mode: 0755
-            - src: ./files/telemt.config
-              dst: /etc/config/telemt
-              type: config
-              file_info:
-                mode: 0644
-          scripts:
-            postinstall: ./postinst.sh
-            preremove: ./prerm.sh
-            postremove: ./postrm.sh
-          EOF
-            nfpm pkg --config nfpm_apk.yaml --packager apk --target "telemt_${PKG_VER}_${PKG_ARCH}.apk"
-          done
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
-        with:
-          files: |
-            telemt-aarch64-musl
+          name: telemt-packages
+          path: |
             *.ipk
             *.apk
-          name: Release ${{ env.VERSION }}
-          tag_name: ${{ env.VERSION }}
-          prerelease: false
-          draft: false
+
+      # МАГИЯ ЗДЕСЬ: Создаем релиз и прикрепляем файлы
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') # Защита: делаем релиз только если запущено по тегу
+        with:
+          files: |
+            *.ipk
+            *.apk
+          generate_release_notes: true # Автоматически добавит список твоих коммитов в описание релиза
