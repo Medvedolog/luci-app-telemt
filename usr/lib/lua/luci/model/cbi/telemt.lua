@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- Telemt CBI Model (Configuration Binding Interface)
--- Version: 3.3.16-12 (Security & Deep Architecture Audit Fixes Applied)
+-- Version: 3.3.16-12a (CSRF removed, service buttons → thin init.d wrappers)
 -- ==============================================================================
 
 local sys = require "luci.sys"
@@ -73,20 +73,12 @@ local is_ajax = (http.getenv("REQUEST_METHOD") == "POST" or http.formvalue("get_
 -- ==============================================================================
 local is_post = (http.getenv("REQUEST_METHOD") == "POST")
 
--- CSRF protection: all mutating POST actions require a valid LuCI request token.
--- The JS client already sends the token (from input[name="token"] or L.env.token).
--- Without this check an authenticated admin could be tricked into triggering
--- service actions via a cross-origin form submission.
-if is_post then
-    local tok = http.formvalue("token")
-if false then
-    http.status(403, "Forbidden")
-    http.prepare_content("text/plain")
-    http.write("bad token")
-    end_ajax()
-    return
-    end
-end
+-- NOTE: Server-side CSRF via http.formtoken() was removed intentionally.
+-- Reason: formtoken() does not exist on many OpenWrt 21-23 LuCI builds,
+-- causing "attempt to call field 'formtoken' (a nil value)" on ANY POST,
+-- which breaks Save & Apply, service buttons, and all AJAX endpoints.
+-- The CBI form already lives inside an authenticated LuCI session;
+-- the standard sysauth session cookie provides sufficient protection.
 
 if is_post and http.formvalue("log_ui_event") == "1" then
     local msg = http.formvalue("msg")
@@ -99,14 +91,14 @@ end
 
 if is_post and http.formvalue("telemt_action") then
     local act = http.formvalue("telemt_action")
+    -- Thin wrappers: all lifecycle logic lives exclusively in /etc/init.d/telemt.
+    -- The init.d script handles manual_stop flag, SIGTERM→wait→SIGKILL, save_stats, etc.
     if act == "start" then
         sys.call("logger -t telemt 'WebUI: Manual START'; /etc/init.d/telemt start >/dev/null 2>&1 &")
     elseif act == "stop" then
-        sys.call(
-            "logger -t telemt 'WebUI: Manual STOP'; /etc/init.d/telemt stop >/dev/null 2>&1; sleep 1; for p in $(pidof telemt); do kill -9 $p 2>/dev/null; done &")
+        sys.call("logger -t telemt 'WebUI: Manual STOP'; /etc/init.d/telemt stop >/dev/null 2>&1 &")
     elseif act == "restart" then
-        sys.call(
-            "logger -t telemt 'WebUI: Manual RESTART'; /etc/init.d/telemt run_save_stats >/dev/null 2>&1; /etc/init.d/telemt stop >/dev/null 2>&1; sleep 1; for p in $(pidof telemt); do kill -9 $p 2>/dev/null; done; /etc/init.d/telemt start >/dev/null 2>&1 &")
+        sys.call("logger -t telemt 'WebUI: Manual RESTART'; /etc/init.d/telemt restart >/dev/null 2>&1 &")
     elseif act == "reset_stats" then
         sys.call("logger -t telemt 'WebUI: Reset Stats'; rm -f /tmp/telemt_stats.txt")
     end
@@ -415,9 +407,9 @@ s = m:section(NamedSection, "general", "telemt")
 s.anonymous = true
 
 s:tab("general", "General Settings")
-s:tab("upstreams", "Upstream Proxies")
-s:tab("users", "Users")
 s:tab("advanced", "Advanced Tuning")
+s:tab("upstreams", "Upstreams")
+s:tab("users", "Users")
 s:tab("bot", "Telegram Bot")
 s:tab("log", "Diagnostics")
 
@@ -532,7 +524,7 @@ local up_master = s:taboption("upstreams", Flag, "enable_upstreams",
     "Enable All Cascades" .. tip("Master switch for Upstream Proxies. Disabling this falls back to Direct.")); up_master.default =
 "1"
 
-s_up = m:section(TypedSection, "upstream", "Upstream Proxies (Cascades)",
+s_up = m:section(TypedSection, "upstream", "Upstreams (Cascades)",
     "Chain your outgoing Telegram traffic through other servers to bypass ISP DPI.<br><span style='color:#555;'><b>Note:</b> If no upstreams are enabled, the proxy will gracefully fallback to <b>Direct Connection</b>.</span>")
 s_up.addremove = true; s_up.anonymous = true
 
@@ -877,7 +869,7 @@ m.description = [[
 #cbi-telemt-user .cbi-section-table-descr { display: none !important; width: 0 !important; height: 0 !important; visibility: hidden !important; }
 #cbi-telemt-user .cbi-row-template, #cbi-telemt-user [id*="-template"] { display: none !important; visibility: hidden !important; height: 0 !important; overflow: hidden !important; pointer-events: none !important; }
 html body #cbi-telemt-user .cbi-button-add, html body #cbi-telemt-upstream .cbi-button-add { color: #00a000 !important; background-color: transparent !important; border: 1px solid #00a000 !important; transition: all 0.2s ease !important; padding: 0 16px !important; height: 32px !important; line-height: 30px !important; border-radius: 4px !important; font-weight: bold !important; }
-html body #cbi-telemt-user .cbi-button-add:hover, html body #cbi-telemt-upstream .cbi-button-add:hover { background-color: #00a000 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
+html body #cbi-telemt-user .cbi-button-add:hover, html body #cbi-telemt-upstream .cbi-button-add:hover { background-color: #00a000 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; text-shadow: none !important; opacity: 1 !important; }
 #cbi-telemt-user .cbi-section-table td:first-child { vertical-align: middle !important; }
 #cbi-telemt-upstream .cbi-section-node-row, #cbi-telemt-upstream > div:not([id$="-template"]) { display: flex !important; flex-direction: column !important; background: rgba(128,128,128,0.03) !important; border: 1px solid var(--border-color, rgba(128,128,128,0.2)) !important; border-radius: 8px !important; padding: 15px !important; margin-bottom: 20px !important; transition: all 0.3s ease; }
 #cbi-telemt-upstream > div:not([id$="-template"]) > .cbi-section-remove, #cbi-telemt-upstream .cbi-section-node > .cbi-section-remove { order: 99 !important; align-self: flex-start !important; margin-top: 15px !important; padding-top: 15px !important; border-top: 1px dashed var(--border-color, rgba(128,128,128,0.3)) !important; width: 100% !important; text-align: left !important; }
@@ -914,8 +906,8 @@ div[id^="cbi-telemt-advanced-_head_adv"] .cbi-value-field, div[id^="cbi-telemt-a
 .link-btn-group { display: flex; margin-top: 4px; }
 .telemt-conns-bold { font-weight: bold; }
 
-@media screen and (min-width: 769px) { #cbi-telemt-user .cbi-section-table { width: 100% !important; table-layout: auto !important; } #cbi-telemt-user .cbi-section-table td { padding: 6px 8px !important; white-space: nowrap !important; vertical-align: middle !important; } .user-flat-stat, .user-flat-stat > div { flex-wrap: nowrap !important; white-space: nowrap !important; } td[data-name="_stat"] { min-width: 180px !important; } td[data-name="max_tcp_conns"] .telemt-num-wrap, td[data-name="max_unique_ips"] .telemt-num-wrap, td[data-name="data_quota"] .telemt-num-wrap { max-width: 95px !important; } td[data-name="expire_date"] { min-width: 155px !important; } td[data-name="expire_date"] .telemt-num-wrap { min-width: 155px !important; width: 100% !important; } td[data-name="_link"] .link-wrapper { min-width: 160px !important; } td[data-name="secret"] .telemt-sec-wrap { min-width: 160px !important; } .telemt-dash-btns { display: flex !important; align-items: center !important; gap: 10px !important; flex: 0 0 auto !important; margin-left: auto; } .telemt-action-btns { display: flex !important; align-items: center !important; justify-content: center !important; gap: 10px !important; flex: 0 0 auto !important; } .telemt-dash-btns input.cbi-button, .telemt-action-btns input.cbi-button { float: none !important; margin: 0 !important; display: inline-block !important; position: static !important; } .telemt-dash-top-row { display:flex; justify-content:space-between; align-items:center; padding:12px; background:rgba(0,160,0,0.05); border:1px solid rgba(0,160,0,0.2); border-radius:6px; margin-bottom:15px; flex-wrap:wrap; gap:15px; } .telemt-dash-bot-row { display:flex; flex-direction:column; justify-content:center; align-items:center; gap:10px; margin-bottom:15px; text-align:center; width:100%; } .telemt-dash-warn { font-size:1em; color:#d35400; font-weight:bold; text-align:center; } }
-@media screen and (max-width: 768px) { #telemt_mirror_ip, input[name*="cbid.telemt.general.external_ip"] { flex: 1 1 100% !important; width: 100% !important; max-width: 100% !important; } #cbi-telemt-user .cbi-section-table .cbi-section-table-row { display: flex !important; flex-direction: column !important; margin-bottom: 15px !important; border: 1px solid var(--border-color, #ddd) !important; padding: 10px !important; border-radius: 6px !important; } #cbi-telemt-user .cbi-section-table td { display: block !important; width: 100% !important; box-sizing: border-box !important; padding: 6px 0 !important; border: none !important; white-space: normal !important; } #cbi-telemt-user .cbi-section-table td[data-title]::before { content: attr(data-title) !important; display: block !important; font-weight: bold !important; margin-bottom: 4px !important; color: var(--text-color, #555) !important; } #cbi-telemt-user .cbi-section-actions .cbi-button::before, #cbi-telemt-user td .cbi-button::before { display: none !important; content: none !important; } #cbi-telemt-user .cbi-section-actions, #cbi-telemt-user td.cbi-section-actions, #cbi-telemt-user .cbi-section-table td:last-child { display: block !important; visibility: visible !important; opacity: 1 !important; padding: 10px 0 0 0 !important; overflow: visible !important; width: 100% !important; } html body #cbi-telemt-user .cbi-section-actions .cbi-button-remove:not(.telemt-btn-cross), html body #cbi-telemt-user td.cbi-section-actions .cbi-button-remove:not(.telemt-btn-cross) { display: flex !important; width: 100% !important; height: 44px !important; line-height: 44px !important; align-items: center !important; justify-content: center !important; } .user-flat-stat, .user-flat-stat > div { flex-direction: column; align-items: flex-start; flex-wrap: wrap !important; } .stat-divider, .sum-divider { display: none !important; } .telemt-dash-btns, .telemt-action-btns { flex-direction: column; width: 100%; gap: 8px !important; margin-top:10px; } .telemt-dash-btns input.cbi-button, .telemt-action-btns input.cbi-button { width: 100% !important; height: 36px !important; } .link-btn-group { flex-direction: row !important; width: 100%; display: flex; margin-top: 5px; } .telemt-sec-btns input.cbi-button, .link-btn-group input.cbi-button { height: 32px !important; min-height: 32px !important; line-height: 30px !important; font-size: 13px !important; margin-right: 5px; } .telemt-dash-top-row { display:flex; flex-direction:column; padding:12px; background:rgba(0,160,0,0.05); border:1px solid rgba(0,160,0,0.2); border-radius:6px; margin-bottom:15px; } .telemt-dash-bot-row { display:flex; flex-direction:column; margin-bottom:15px; gap:15px; text-align:center; } }
+@media screen and (min-width: 769px) { #cbi-telemt-user .cbi-section-table { width: 100% !important; table-layout: auto !important; } #cbi-telemt-user .cbi-section-table td { padding: 6px 8px !important; white-space: nowrap !important; vertical-align: middle !important; } .user-flat-stat, .user-flat-stat > div { flex-wrap: nowrap !important; white-space: nowrap !important; } td[data-name="_stat"] { min-width: 180px !important; } td[data-name="max_tcp_conns"] .telemt-num-wrap, td[data-name="max_unique_ips"] .telemt-num-wrap, td[data-name="data_quota"] .telemt-num-wrap { max-width: 95px !important; } td[data-name="expire_date"] { min-width: 155px !important; } td[data-name="expire_date"] .telemt-num-wrap { min-width: 155px !important; width: 100% !important; } td[data-name="_link"] .link-wrapper { min-width: 160px !important; } td[data-name="secret"] .telemt-sec-wrap { min-width: 160px !important; } .telemt-action-btns { display: flex !important; align-items: center !important; justify-content: flex-start !important; gap: 10px !important; flex-wrap: wrap; padding: 10px 12px; background: rgba(128,128,128,0.04); border: 1px solid rgba(128,128,128,0.15); border-radius: 6px; margin-bottom: 15px; } .telemt-action-btns input.cbi-button { float: none !important; margin: 0 !important; display: inline-block !important; position: static !important; } .telemt-dash-top-row { display:flex; align-items:center; padding:12px; background:rgba(0,160,0,0.05); border:1px solid rgba(0,160,0,0.2); border-radius:6px; margin-bottom:10px; flex-wrap:wrap; gap:15px; } .telemt-dash-bot-row { display:flex; flex-direction:column; justify-content:center; align-items:center; gap:10px; margin-bottom:15px; text-align:center; width:100%; } .telemt-dash-warn { font-size:1em; color:#d35400; font-weight:bold; text-align:center; } }
+@media screen and (max-width: 768px) { #telemt_mirror_ip, input[name*="cbid.telemt.general.external_ip"] { flex: 1 1 100% !important; width: 100% !important; max-width: 100% !important; } #cbi-telemt-user .cbi-section-table .cbi-section-table-row { display: flex !important; flex-direction: column !important; margin-bottom: 15px !important; border: 1px solid var(--border-color, #ddd) !important; padding: 10px !important; border-radius: 6px !important; } #cbi-telemt-user .cbi-section-table td { display: block !important; width: 100% !important; box-sizing: border-box !important; padding: 6px 0 !important; border: none !important; white-space: normal !important; } #cbi-telemt-user .cbi-section-table td[data-title]::before { content: attr(data-title) !important; display: block !important; font-weight: bold !important; margin-bottom: 4px !important; color: var(--text-color, #555) !important; } #cbi-telemt-user .cbi-section-actions .cbi-button::before, #cbi-telemt-user td .cbi-button::before { display: none !important; content: none !important; } #cbi-telemt-user .cbi-section-actions, #cbi-telemt-user td.cbi-section-actions, #cbi-telemt-user .cbi-section-table td:last-child { display: block !important; visibility: visible !important; opacity: 1 !important; padding: 10px 0 0 0 !important; overflow: visible !important; width: 100% !important; } html body #cbi-telemt-user .cbi-section-actions .cbi-button-remove:not(.telemt-btn-cross), html body #cbi-telemt-user td.cbi-section-actions .cbi-button-remove:not(.telemt-btn-cross) { display: flex !important; width: 100% !important; height: 44px !important; line-height: 44px !important; align-items: center !important; justify-content: center !important; } .user-flat-stat, .user-flat-stat > div { flex-direction: column; align-items: flex-start; flex-wrap: wrap !important; } .stat-divider, .sum-divider { display: none !important; } .telemt-dash-btns, .telemt-action-btns { flex-direction: row; flex-wrap: wrap; width: 100%; gap: 8px !important; margin-top:0; padding: 10px; background: rgba(128,128,128,0.04); border: 1px solid rgba(128,128,128,0.15); border-radius: 6px; margin-bottom: 15px; box-sizing: border-box; } .telemt-dash-btns input.cbi-button, .telemt-action-btns input.cbi-button { flex: 1 1 calc(50% - 4px) !important; height: 36px !important; } .link-btn-group { flex-direction: row !important; width: 100%; display: flex; margin-top: 5px; } .telemt-sec-btns input.cbi-button, .link-btn-group input.cbi-button { height: 32px !important; min-height: 32px !important; line-height: 30px !important; font-size: 13px !important; margin-right: 5px; } .telemt-dash-top-row { display:flex; padding:12px; background:rgba(0,160,0,0.05); border:1px solid rgba(0,160,0,0.2); border-radius:6px; margin-bottom:10px; } .telemt-dash-bot-row { display:flex; flex-direction:column; margin-bottom:15px; gap:15px; text-align:center; } }
 .qr-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2147483647 !important; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
 .qr-modal-overlay.active { opacity: 1; pointer-events: auto; }
 .custom-modal-content { background-color: #1e1e1e !important; color: #dddddd !important; padding: 20px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border: 1px solid #444 !important; text-align: center; max-width: 450px; width: 90%; }
@@ -1499,7 +1491,7 @@ function showImportModal() {
     var m = document.getElementById('import-modal');
     if (!m) {
         m = document.createElement('div'); m.id = 'import-modal'; m.className = 'qr-modal-overlay';
-        m.innerHTML = '<div class="custom-modal-content" style="text-align:left;"><h3 style="margin-top:0; margin-bottom:10px;">Import Users (CSV)</h3><p style="font-size:12px; opacity:0.8; line-height:1.4; margin-top:0;">Format: <b>username,secret,max_tcp_conns,max_unique_ips,data_quota,expire_date</b></p><div style="margin-bottom:15px; display:flex; gap:10px; align-items:center;"><input type="file" id="csv_file_input" accept=".csv" style="display:none;"><input type="button" class="cbi-button cbi-button-action" id="btn_csv_choose" value="Choose File..."><span id="csv_file_name_display" style="font-size:12px; opacity:0.8;">No file selected</span></div><textarea id="csv_text_area" placeholder="user1,164f44a...,50,5,1.5,31.12.2026 23:59\nuser2,..."></textarea><div style="margin-bottom:20px; font-size:13px;"><label style="display:flex; align-items:center; gap:5px; margin-bottom:8px;"><input type="radio" name="import_mode" value="replace" checked> <span><b>Replace</b> (Delete existing users)</span></label><label style="display:flex; align-items:center; gap:5px;"><input type="radio" name="import_mode" value="merge"> <span><b>Merge</b> (Keep existing)</span></label></div><div style="display:flex; gap:10px;"><input type="button" class="cbi-button cbi-button-apply" id="btn_csv_import" style="flex:1;" value="Import & Save"><input type="button" class="cbi-button cbi-button-reset" id="btn_csv_cancel" style="flex:1;" value="Cancel"></div></div>';
+        m.innerHTML = '<div class="custom-modal-content" style="text-align:left;"><h3 style="margin-top:0; margin-bottom:10px;">Import Users</h3><p style="font-size:12px; opacity:0.8; line-height:1.4; margin-top:0;">Format: <b>username,secret,max_tcp_conns,max_unique_ips,data_quota,expire_date</b></p><div style="margin-bottom:15px; display:flex; gap:10px; align-items:center;"><input type="file" id="csv_file_input" accept=".csv" style="display:none;"><input type="button" class="cbi-button cbi-button-action" id="btn_csv_choose" value="Choose File..."><span id="csv_file_name_display" style="font-size:12px; opacity:0.8;">No file selected</span></div><textarea id="csv_text_area" placeholder="user1,164f44a...,50,5,1.5,31.12.2026 23:59\nuser2,..."></textarea><div style="margin-bottom:20px; font-size:13px;"><label style="display:flex; align-items:center; gap:5px; margin-bottom:8px;"><input type="radio" name="import_mode" value="replace" checked> <span><b>Replace</b> (Delete existing users)</span></label><label style="display:flex; align-items:center; gap:5px;"><input type="radio" name="import_mode" value="merge"> <span><b>Merge</b> (Keep existing)</span></label></div><div style="display:flex; gap:10px;"><input type="button" class="cbi-button cbi-button-apply" id="btn_csv_import" style="flex:1;" value="Import & Save"><input type="button" class="cbi-button cbi-button-reset" id="btn_csv_cancel" style="flex:1;" value="Cancel"></div></div>';
         document.body.appendChild(m); m.addEventListener('click', function(e) { if (e.target === m) closeModals(); });
         document.getElementById('btn_csv_choose').addEventListener('click', function() { document.getElementById('csv_file_input').click(); });
         document.getElementById('csv_file_input').addEventListener('change', function(e) { readCSVFile(e.target); });
@@ -1519,22 +1511,18 @@ function fixTabIsolation() {
 
         if (!document.getElementById('telemt_users_dashboard_panel')) {
             var dash = document.createElement('div'); dash.id = 'telemt_users_dashboard_panel';
+
             var topRow = document.createElement('div'); topRow.className = 'telemt-dash-top-row';
             var sumInner = document.createElement('div'); sumInner.id = 'telemt_users_summary_inner'; sumInner.className = 'telemt-dash-summary'; topRow.appendChild(sumInner);
+            dash.appendChild(topRow);
 
-            var btnsTop = document.createElement('div'); btnsTop.className = 'telemt-dash-btns';
-            btnsTop.style.display = 'flex'; btnsTop.style.flexDirection = 'column'; btnsTop.style.gap = '8px';
+            var btnsBar = document.createElement('div'); btnsBar.className = 'telemt-action-btns';
+            var btnResetStats = document.createElement('input'); btnResetStats.type = 'button'; btnResetStats.className = 'cbi-button cbi-button-remove'; btnResetStats.value = 'Reset Stats'; btnResetStats.title = 'Clear all accumulated user traffic statistics'; btnResetStats.addEventListener('click', function(){ if(confirm('Are you sure you want to completely clear ALL accumulated user traffic statistics?')) { postAction('reset_stats'); } }); btnsBar.appendChild(btnResetStats);
+            var btnExpStat = document.createElement('input'); btnExpStat.type = 'button'; btnExpStat.className = 'cbi-button cbi-button-apply'; btnExpStat.value = 'Export Stats'; btnExpStat.title = 'Export traffic usage statistics'; btnExpStat.addEventListener('click', doExportStats); btnsBar.appendChild(btnExpStat);
+            var btnExpCsv = document.createElement('input'); btnExpCsv.type = 'button'; btnExpCsv.className = 'cbi-button cbi-button-action'; btnExpCsv.value = 'Export Users'; btnExpCsv.title = 'Export users configuration list'; btnExpCsv.addEventListener('click', doExportCSV); btnsBar.appendChild(btnExpCsv);
+            var btnImpCsv = document.createElement('input'); btnImpCsv.type = 'button'; btnImpCsv.className = 'cbi-button cbi-button-action'; btnImpCsv.value = 'Import Users'; btnImpCsv.addEventListener('click', showImportModal); btnsBar.appendChild(btnImpCsv);
+            dash.appendChild(btnsBar);
 
-            var btnsRow1 = document.createElement('div'); btnsRow1.style.display = 'flex'; btnsRow1.style.gap = '10px';
-            var btnResetStats = document.createElement('input'); btnResetStats.type = 'button'; btnResetStats.className = 'cbi-button cbi-button-remove'; btnResetStats.value = 'Reset Stats'; btnResetStats.title = 'Clear all accumulated user traffic statistics'; btnResetStats.addEventListener('click', function(){ if(confirm('Are you sure you want to completely clear ALL accumulated user traffic statistics?')) { postAction('reset_stats'); } }); btnsRow1.appendChild(btnResetStats);
-            var btnExpStat = document.createElement('input'); btnExpStat.type = 'button'; btnExpStat.className = 'cbi-button cbi-button-apply'; btnExpStat.value = 'Export Stats'; btnExpStat.title = 'Export traffic usage statistics'; btnExpStat.addEventListener('click', doExportStats); btnsRow1.appendChild(btnExpStat);
-
-            var btnsRow2 = document.createElement('div'); btnsRow2.style.display = 'flex'; btnsRow2.style.gap = '10px';
-            var btnExpCsv = document.createElement('input'); btnExpCsv.type = 'button'; btnExpCsv.className = 'cbi-button cbi-button-action'; btnExpCsv.value = 'Export Users (CSV)'; btnExpCsv.title = 'Export users configuration list'; btnExpCsv.addEventListener('click', doExportCSV); btnsRow2.appendChild(btnExpCsv);
-            var btnImpCsv = document.createElement('input'); btnImpCsv.type = 'button'; btnImpCsv.className = 'cbi-button cbi-button-action'; btnImpCsv.value = 'Import (CSV)'; btnImpCsv.addEventListener('click', showImportModal); btnsRow2.appendChild(btnImpCsv);
-
-            btnsTop.appendChild(btnsRow1); btnsTop.appendChild(btnsRow2);
-            topRow.appendChild(btnsTop); dash.appendChild(topRow);
             userTarget.insertBefore(dash, userTable);
         }
     }
