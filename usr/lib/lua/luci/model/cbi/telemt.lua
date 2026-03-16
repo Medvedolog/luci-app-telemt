@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- Telemt CBI Model (Configuration Binding Interface)
--- Version: 3.3.16-11 (Security & Deep Architecture Audit Fixes Applied)
+-- Version: 3.3.16-12 (Security & Deep Architecture Audit Fixes Applied)
 -- ==============================================================================
 
 local sys = require "luci.sys"
