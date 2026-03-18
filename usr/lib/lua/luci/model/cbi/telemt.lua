@@ -1038,10 +1038,13 @@ end
 local u_en = s2:option(Flag, "enabled", "Active" .. tip("Uncheck to manually pause this user.")); u_en.default = "1"; u_en.rmempty = false
 local t_con = s2:option(Value, "max_tcp_conns", "TCP Conns" .. tip("Limit sessions (e.g. 50)")); t_con.datatype =
 "uinteger"; t_con.placeholder = "unlimited"
+function t_con.validate(self, v) if v and v ~= "" then local n = tonumber(v); if not n or n < 1 or n > 100000 then return nil, "1-100000 or empty" end end; return v end
 local t_uips = s2:option(Value, "max_unique_ips", "Max IPs" .. tip("Max unique client IPs.")); t_uips.datatype =
 "uinteger"; t_uips.placeholder = "unlimited"
+function t_uips.validate(self, v) if v and v ~= "" then local n = tonumber(v); if not n or n < 1 or n > 1000 then return nil, "1-1000 or empty" end end; return v end
 local t_qta = s2:option(Value, "data_quota", "Quota (GB)" .. tip("E.g. 1.5 or 0.5")); t_qta.datatype = "ufloat"; t_qta.placeholder =
 "unlimited"
+function t_qta.validate(self, v) if v and v ~= "" then local n = tonumber(v); if not n or n <= 0 or n > 999999 then return nil, "0.01-999999 GB or empty" end end; return v end
 local t_exp = s2:option(Value, "expire_date", "Expire Date" .. tip("Format: DD.MM.YYYY HH:MM")); t_exp.datatype =
 "string"; t_exp.placeholder = "DD.MM.YYYY HH:MM"; function t_exp.validate(self, value)
     if not value then return "" end
@@ -1748,7 +1751,7 @@ function loadRuntimeInfo() {
             'telemt_me_handshake_reject_total', 'telemt_me_crc_mismatch_total'];
         for (var i = 0; i < pkeys.length; i++) {
             var re = new RegExp(pkeys[i] + '\\s+([0-9\\.eE\\+\\-]+)');
-            var m = promPart.match(re); if (m) prom[pkeys[i]] = parseFloat(m[1]);
+            var mv = promPart.match(re); if (mv) { var pk = pkeys[i]; prom[pk] = parseFloat(mv[1]); }
         }
         var upt = prom['telemt_uptime_seconds'] || 0;
         var uptD = Math.floor(upt / 86400), uptH = Math.floor((upt % 86400) / 3600), uptM = Math.floor((upt % 3600) / 60);
