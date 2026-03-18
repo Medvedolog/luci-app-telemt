@@ -1,6 +1,15 @@
 -- ==============================================================================
 -- Telemt CBI Model (Configuration Binding Interface)
--- Version: 3.3.21-2 (TG PATH/EGRESS badges, unique IPs, runtime info, mobile summary)
+-- Version: 3.3.22
+-- Changes from 3.3.21:
+--   - Dark theme fix: replaced hardcoded color:#555/#888 with inherit/opacity
+--   - Users & Upstreams tabs: "Active" column → "On" (saves width, tooltips preserved)
+--   - Diagnostics: live connections counter (from Prometheus)
+--   - Diagnostics: per-DC latency in Upstreams card (from /v1/runtime/upstream_quality)
+--   - Diagnostics: formatted Beobachten scanner output (parsed categories)
+--   - Diagnostics: Runtime Info human-readable (system/gates/events in log terminal)
+--   - Users tab: IP address list tooltip on hover (from /v1/users API)
+--   - Upstreams tab: runtime health badge per upstream (healthy/fails/latency)
 -- ==============================================================================
 
 local sys = require "luci.sys"
@@ -303,6 +312,18 @@ if http.formvalue("get_metrics") == "1" then
         local up_json = http_get_local("http://127.0.0.1:" .. api_port .. "/v1/stats/upstreams", 1)
         metrics = metrics .. "\n---TELEMT_UPSTREAMS_JSON---\n"
         metrics = metrics .. ((up_json ~= "" and up_json) or "{}")
+        -- Upstream quality with per-DC latency (3.3.22+, graceful empty on older binaries)
+        local upq_json = http_get_local("http://127.0.0.1:" .. api_port .. "/v1/runtime/upstream_quality", 1)
+        metrics = metrics .. "\n---TELEMT_UPSTREAM_QUALITY_JSON---\n"
+        metrics = metrics .. ((upq_json ~= "" and upq_json) or "{}")
+        -- Users API for active IP lists and live stats (3.3.15+)
+        local users_json = http_get_local("http://127.0.0.1:" .. api_port .. "/v1/users", 1)
+        metrics = metrics .. "\n---TELEMT_USERS_JSON---\n"
+        metrics = metrics .. ((users_json ~= "" and users_json) or "{}")
+        -- User details with IP lists (for tooltip display, 3.3.15+)
+        local users_json = http_get_local("http://127.0.0.1:" .. api_port .. "/v1/users", 1)
+        metrics = metrics .. "\n---TELEMT_USERS_API_JSON---\n"
+        metrics = metrics .. ((users_json ~= "" and users_json) or "{}")
     end
 
     http.prepare_content("text/plain"); pcall(function() http.write(metrics) end); end_ajax(); return
@@ -461,7 +482,7 @@ if bin_path ~= "" then
 end
 
 m = Map("telemt", "Telegram Proxy (MTProto)",
-    [[Multi-user proxy server based on <a href="https://github.com/telemt/telemt" target="_blank" style="text-decoration:none; color:inherit; font-weight:bold; border-bottom: 1px dotted currentColor;">telemt</a>.<br><b>LuCI App Version: <a href="https://github.com/Medvedolog/luci-app-telemt" target="_blank" style="text-decoration:none; color:inherit; border-bottom: 1px dotted currentColor;">3.3.21</a></b> | <span style='color:#d35400; font-weight:bold;'>Requires telemt v3.3.15+</span>]])
+    [[Multi-user proxy server based on <a href="https://github.com/telemt/telemt" target="_blank" style="text-decoration:none; color:inherit; font-weight:bold; border-bottom: 1px dotted currentColor;">telemt</a>.<br><b>LuCI App Version: <a href="https://github.com/Medvedolog/luci-app-telemt" target="_blank" style="text-decoration:none; color:inherit; border-bottom: 1px dotted currentColor;">3.3.22</a></b> | <span style='color:#d35400; font-weight:bold;'>Requires telemt v3.3.15+</span>]])
 m.on_commit = function(self)
     sys.call(
         "logger -t telemt 'WebUI: Config saved. Dumping stats before procd reload...'; /etc/init.d/telemt run_save_stats 2>/dev/null")
@@ -626,7 +647,7 @@ function u_lbl.validate(self, v, section)
     if count > 0 then return nil, "Cascade name must be unique!" end; return v
 end
 
-local uen = s_up:option(Flag, "enabled", "Active"); uen.default = "1"; uen.rmempty = false
+local uen = s_up:option(Flag, "enabled", "On"); uen.default = "1"; uen.rmempty = false
 local ut = s_up:option(ListValue, "type", "Protocol")
 ut:value("direct", "Direct"); ut:value("socks4", "SOCKS4"); ut:value("socks5", "SOCKS5"); ut.default = "socks5"
 
@@ -940,6 +961,9 @@ diag.default = [[
             <span style="color:#888;">Fetching Runtime Status...</span>
         </div>
 
+        <!-- Live connections counter (updated from Prometheus on each poll) -->
+        <div id="diag_live_conns" style="margin-bottom:12px; padding:8px 12px; background:rgba(0,160,0,0.05); border:1px solid rgba(0,160,0,0.15); border-radius:5px; font-size:0.95em; display:none;"></div>
+
         <div style="display:flex; flex-wrap:wrap; gap:15px; width:100%;">
             <div style="flex:1 1 300px; background:rgba(128,128,128,0.03); border:1px solid rgba(128,128,128,0.2); border-radius:6px; padding:15px; box-sizing:border-box;">
                 <h4 style="margin-top:0; color:#0069d6; border-bottom:1px dashed #ccc; padding-bottom:5px;">Upstreams Status</h4>
@@ -953,7 +977,7 @@ diag.default = [[
     </div>
 
     <div class="telemt-dash-top-row" style="margin-top:20px; margin-bottom:15px; padding:15px; background:rgba(128,128,128,0.05); border:1px solid rgba(128,128,128,0.2); border-radius:6px; display:flex; justify-content:flex-start; align-items:center; flex-wrap:wrap; gap:15px;">
-        <div style="font-weight:bold; font-size:1.1em; color:#555; margin-right:15px;">Maintenance</div>
+        <div style="font-weight:bold; font-size:1.1em; opacity:0.8; margin-right:15px;">Maintenance</div>
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
             <input type="button" class="cbi-button cbi-button-action" id="btn_export_config" value="Export Active Config" style="background:#4a90e2; color:#fff; border:1px solid #357abd;" />
             <input type="button" class="cbi-button cbi-button-remove" id="btn_reset_config" value="Reset to defaults" />
@@ -1035,7 +1059,7 @@ local sec = s2:option(Value, "secret", "Secret (32 hex)" .. tip("Leave empty to 
     end; return value
 end
 
-local u_en = s2:option(Flag, "enabled", "Active" .. tip("Uncheck to manually pause this user.")); u_en.default = "1"; u_en.rmempty = false
+local u_en = s2:option(Flag, "enabled", "On" .. tip("Uncheck to manually pause this user.")); u_en.default = "1"; u_en.rmempty = false
 local t_con = s2:option(Value, "max_tcp_conns", "TCP Conns" .. tip("Limit sessions (e.g. 50)")); t_con.datatype =
 "uinteger"; t_con.placeholder = "unlimited"
 function t_con.validate(self, v) if v and v ~= "" then local n = tonumber(v); if not n or n < 1 or n > 100000 then return nil, "1-100000 or empty" end end; return v end
@@ -1206,6 +1230,39 @@ function updateCascadesState() {
     }
 }
 
+// Inject runtime health badges into Upstream Proxies tab rows
+function renderUpstreamBadges(upData) {
+    if (!upData || !upData.ok || !upData.data || !Array.isArray(upData.data.upstreams)) return;
+    var ups = upData.data.upstreams;
+    // Build address -> status lookup
+    var lookup = {};
+    for (var i = 0; i < ups.length; i++) {
+        if (ups[i].address) lookup[ups[i].address] = ups[i];
+    }
+    // Find upstream config rows and inject badges
+    var rows = document.querySelectorAll('#cbi-telemt-upstream .cbi-section-node:not([id*="-template"])');
+    rows.forEach(function(row) {
+        var addrInput = row.querySelector('input[name*="address"]');
+        if (!addrInput) return;
+        var addr = addrInput.value.trim();
+        var info = lookup[addr];
+        // Remove old badge if exists
+        var old = row.querySelector('.up-health-badge');
+        if (old) old.remove();
+        if (!info) return;
+        var badge = document.createElement('div');
+        badge.className = 'up-health-badge';
+        badge.style.cssText = 'margin-top:6px;padding:5px 10px;border-radius:4px;font-size:0.85em;background:rgba(128,128,128,0.05);border:1px solid rgba(128,128,128,0.15);';
+        var hIcon = info.healthy ? '<span style="color:#00a000;">&#10003; healthy</span>' : '<span style="color:#d9534f;">&#10007; unhealthy</span>';
+        var latStr = (info.effective_latency_ms != null) ? parseFloat(info.effective_latency_ms).toFixed(1) + 'ms' : '—';
+        badge.innerHTML = hIcon + ' &nbsp;|&nbsp; fails: ' + (info.fails || 0) + ' &nbsp;|&nbsp; lat: ' + latStr;
+        // Insert after the first cbi-value div (top of the row)
+        var firstVal = row.querySelector('.cbi-value');
+        if (firstVal) firstVal.parentNode.insertBefore(badge, firstVal.nextSibling);
+        else row.appendChild(badge);
+    });
+}
+
 function setOfflineState() {
     var sEl = document.getElementById('dash_status'); if(sEl) { sEl.innerText = 'STOPPED'; sEl.style.color = '#d9534f'; }
     var rEl = document.getElementById('dash_rss'); if(rEl) { rEl.innerText = '0 MB'; rEl.style.color = '#888'; }
@@ -1217,8 +1274,10 @@ function setOfflineState() {
     var dg = document.getElementById('diag_gates');
     if(dg) dg.innerHTML = '<span class="badge badge-err">Daemon Stopped</span>';
     var dUp = document.getElementById('diag_upstreams'), dDc = document.getElementById('diag_dcs');
-    if(dUp) dUp.innerHTML = '<span style="color:#888">Offline</span>';
-    if(dDc) dDc.innerHTML = '<span style="color:#888">Offline</span>';
+    if(dUp) dUp.innerHTML = '<span style="opacity:0.6">Offline</span>';
+    if(dDc) dDc.innerHTML = '<span style="opacity:0.6">Offline</span>';
+    var liveEl = document.getElementById('diag_live_conns');
+    if(liveEl) liveEl.style.display = 'none';
 
     window._telemtLastTime = 0;
     window._telemtLastTotalRx = 0;
@@ -1250,7 +1309,7 @@ function parseApiResponse(apiData) {
     return result;
 }
 
-function renderHealthGrid(apiData, promText, upData) {
+function renderHealthGrid(apiData, promText, upData, upqData) {
     var dg = document.getElementById('diag_gates');
     var dUp = document.getElementById('diag_upstreams');
     var dDc = document.getElementById('diag_dcs');
@@ -1275,6 +1334,25 @@ function renderHealthGrid(apiData, promText, upData) {
     var promBadges =
         '<span class="badge ' + (probes > 0 ? 'badge-err' : 'badge-gray') + '" title="DPI traffic tampering events (crypto desync). 0 means ISP is not modifying encrypted streams.">DPI Tamper: ' + probes + '</span>' +
         '<span class="badge ' + (scans > 0 ? 'badge-err' : 'badge-gray') + '" title="Total rejected connections: port scanners, bots, invalid handshakes, bad keys.">Rejected: ' + scans + '</span>';
+
+    // Live connections counter (from Prometheus global gauge, not per-user)
+    var liveEl = document.getElementById('diag_live_conns');
+    if (liveEl) {
+        var ccMatch = promText.match(/^telemt_connections_current\s+([0-9\.]+)/m);
+        var cdMatch = promText.match(/^telemt_connections_direct_current\s+([0-9\.]+)/m);
+        var cmMatch = promText.match(/^telemt_connections_me_current\s+([0-9\.]+)/m);
+        var cc = ccMatch ? parseInt(ccMatch[1], 10) : 0;
+        var cd = cdMatch ? parseInt(cdMatch[1], 10) : 0;
+        var cm = cmMatch ? parseInt(cmMatch[1], 10) : 0;
+        if (cc > 0 || promText.indexOf('telemt_connections_current') > -1) {
+            var liveStr = '<b>Live connections:</b> <span style="font-size:1.1em;font-weight:bold;color:#00a000;">' + cc + '</span>';
+            if (cm > 0) liveStr += ' &nbsp;(direct: ' + cd + ', ME: ' + cm + ')';
+            liveEl.innerHTML = liveStr;
+            liveEl.style.display = '';
+        } else {
+            liveEl.style.display = 'none';
+        }
+    }
 
     var parsed = parseApiResponse(apiData);
     var rt = parsed.runtime;
@@ -1315,18 +1393,18 @@ function renderHealthGrid(apiData, promText, upData) {
             ? '<span class="badge badge-gray" title="Control API is disabled or not responding. Prometheus metrics are shown.">API: Off</span>'
             : '<span class="badge badge-err" title="No telemt metrics received. Daemon may be stopped or in early boot.">No Metrics</span>';
         var promSummary = hasAnyProm
-            ? '<div style="margin-top:8px; font-size:0.9em; color:#555;">' + uptimeTxt + connTxt +
+            ? '<div style="margin-top:8px; font-size:0.9em; opacity:0.8;">' + uptimeTxt + connTxt +
               ' &nbsp;<b>Connects:</b> ' + _upSuccesses +
               ' &nbsp;<b>Fails:</b> ' + _upFails +
               (_upSuccessRate ? ' &nbsp;<b>Success:</b> ' + _upSuccessRate : '') + '</div>'
             : '';
         if(dg) dg.innerHTML = apiMsg + promBadges + promSummary;
-        if(dUp) dUp.innerHTML = '<div style="color:#888; padding:10px;">Upstream table requires Control API.<br><br>' +
+        if(dUp) dUp.innerHTML = '<div style="opacity:0.7; padding:10px;">Upstream table requires Control API.<br><br>' +
             '<b>Connects:</b> ' + _upSuccesses + ' &nbsp;|&nbsp; <b>Fails:</b> ' + _upFails +
             (_upSuccessRate ? ' &nbsp;|&nbsp; <b>Success:</b> ' + _upSuccessRate : '') +
             (_upAttempts > 0 ? ' &nbsp;(' + _upSuccesses + '/' + _upAttempts + ')' : '') +
             '</div>';
-        if(dDc) dDc.innerHTML = '<div style="color:#888; padding:10px;">Runtime details require Control API.</div>';
+        if(dDc) dDc.innerHTML = '<div style="opacity:0.7; padding:10px;">Runtime details require Control API.</div>';
         return;
     }
 
@@ -1402,17 +1480,36 @@ function renderHealthGrid(apiData, promText, upData) {
             : (st && st.upstreams && Array.isArray(st.upstreams) && st.upstreams.length > 0 ? st.upstreams : null);
         if (upsFromApi) {
             var ups = upsFromApi;
-            var uHtml = '<div style="display:flex; justify-content:space-between; font-weight:bold; color:#888; border-bottom:1px solid rgba(128,128,128,0.3); padding-bottom:4px; margin-bottom:4px;"><div style="flex:1">Address</div><div style="flex:0 0 60px; text-align:right;">Status</div><div style="flex:0 0 50px; text-align:right;">Fails</div><div style="flex:0 0 75px; text-align:right;">Lat</div></div>';
+            // Build address->quality lookup from upstream_quality API (3.3.22+)
+            var upqLookup = {};
+            if (upqData && upqData.ok && upqData.data && Array.isArray(upqData.data.upstreams)) {
+                for (var qi=0; qi<upqData.data.upstreams.length; qi++) {
+                    var qu = upqData.data.upstreams[qi];
+                    if (qu && qu.address) upqLookup[qu.address] = qu;
+                }
+            }
+            var uHtml = '<div style="display:flex; justify-content:space-between; font-weight:bold; opacity:0.7; border-bottom:1px solid rgba(128,128,128,0.3); padding-bottom:4px; margin-bottom:4px;"><div style="flex:1">Address</div><div style="flex:0 0 60px; text-align:right;">Status</div><div style="flex:0 0 50px; text-align:right;">Fails</div><div style="flex:0 0 75px; text-align:right;">Lat</div></div>';
             for (var i=0; i<ups.length; i++) {
                 var up = ups[i] || {};
                 var stCol = up.healthy ? '<span style="color:#00a000">OK</span>' : '<span style="color:#d9534f">FAIL</span>';
                 var latStr = (up.effective_latency_ms != null) ? parseFloat(up.effective_latency_ms).toFixed(1) + 'ms' : '—';
                 uHtml += '<div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed rgba(128,128,128,0.15);"><div style="flex:1; word-break:break-all; padding-right:5px;">' + escHTML(up.address || '-') + '</div><div style="flex:0 0 60px; text-align:right;">' + stCol + '</div><div style="flex:0 0 50px; text-align:right;">' + (up.fails || 0) + '</div><div style="flex:0 0 75px; text-align:right;">' + latStr + '</div></div>';
+                // Per-DC latency sub-rows from upstream_quality (if available)
+                var qEntry = upqLookup[up.address];
+                if (qEntry && Array.isArray(qEntry.dc) && qEntry.dc.length > 0) {
+                    var dcParts = [];
+                    for (var d=0; d<qEntry.dc.length && d<6; d++) {
+                        var dcR = qEntry.dc[d];
+                        var dcLat = (dcR.latency_ema_ms != null) ? parseFloat(dcR.latency_ema_ms).toFixed(0) + 'ms' : '—';
+                        dcParts.push('DC' + dcR.dc + ':' + dcLat);
+                    }
+                    uHtml += '<div style="padding:2px 0 4px 12px; font-size:0.85em; opacity:0.7;">' + dcParts.join(' &nbsp; ') + '</div>';
+                }
             }
             dUp.innerHTML = uHtml; upRendered = true;
         }
         if (!upRendered && st && Array.isArray(st.network_path) && st.network_path.length > 0) {
-            var npHtml = '<div style="display:flex; justify-content:space-between; font-weight:bold; color:#888; border-bottom:1px solid rgba(128,128,128,0.3); padding-bottom:4px; margin-bottom:4px;"><div style="flex:1">Hop</div><div style="flex:0 0 80px; text-align:right;">Type</div><div style="flex:0 0 60px; text-align:right;">Status</div></div>';
+            var npHtml = '<div style="display:flex; justify-content:space-between; font-weight:bold; opacity:0.7; border-bottom:1px solid rgba(128,128,128,0.3); padding-bottom:4px; margin-bottom:4px;"><div style="flex:1">Hop</div><div style="flex:0 0 80px; text-align:right;">Type</div><div style="flex:0 0 60px; text-align:right;">Status</div></div>';
             for (var np=0; np < st.network_path.length; np++) {
                 var hop = st.network_path[np] || {};
                 var hopAddr = hop.address || hop.addr || ('-');
@@ -1420,11 +1517,11 @@ function renderHealthGrid(apiData, promText, upData) {
                 var hopOk = (hop.healthy !== false) ? '<span style="color:#00a000">OK</span>' : '<span style="color:#d9534f">FAIL</span>';
                 npHtml += '<div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed rgba(128,128,128,0.15);"><div style="flex:1; word-break:break-all;">' + escHTML(String(hopAddr)) + '</div><div style="flex:0 0 80px; text-align:right;">' + escHTML(String(hopType)) + '</div><div style="flex:0 0 60px; text-align:right;">' + hopOk + '</div></div>';
             }
-            dUp.innerHTML = npHtml + '<div style="margin-top:6px; color:#888; font-size:0.9em;"><b>Connects:</b> ' + _upSuccesses + ' | <b>Fails:</b> ' + _upFails + '</div>';
+            dUp.innerHTML = npHtml + '<div style="margin-top:6px; color:#888; font-size:0.9em; opacity:0.8;"><b>Connects:</b> ' + _upSuccesses + ' | <b>Fails:</b> ' + _upFails + '</div>';
         } else if (!upRendered && parsed.reason === 'source_unavailable') {
-            dUp.innerHTML = '<div style="color:#888; padding:10px;">Direct routing active or detailed upstream info unavailable.<br><br><b>Connects:</b> ' + _upSuccesses + ' | <b>Fails:</b> ' + _upFails + '</div>';
+            dUp.innerHTML = '<div style="opacity:0.7; padding:10px;">Direct routing active or detailed upstream info unavailable.<br><br><b>Connects:</b> ' + _upSuccesses + ' | <b>Fails:</b> ' + _upFails + '</div>';
         } else if (!upRendered) {
-            dUp.innerHTML = '<div style="color:#888; text-align:center; padding:10px;">Direct routing active<br><br><b>Connects:</b> ' + _upSuccesses + ' | <b>Fails:</b> ' + _upFails + '</div>';
+            dUp.innerHTML = '<div style="opacity:0.7; text-align:center; padding:10px;">Direct routing active<br><br><b>Connects:</b> ' + _upSuccesses + ' | <b>Fails:</b> ' + _upFails + '</div>';
         }
     }
 
@@ -1465,7 +1562,7 @@ function renderHealthGrid(apiData, promText, upData) {
             if (uciMpEnabled) {
                 pathParts.push('<span style="color:#d35400;">ME is configured but not ready. Traffic uses Direct-DC as fallback.</span>');
             }
-            dDc.innerHTML = '<div style="color:#555; padding:10px; line-height:1.8;">' + pathParts.join('<br>') + '</div>';
+            dDc.innerHTML = '<div style="color:inherit; padding:10px; line-height:1.8;">' + pathParts.join('<br>') + '</div>';
         }
     }
 }
@@ -1492,7 +1589,15 @@ function fetchMetrics() {
         var rest = (parts[1] || "");
         var apiParts = rest.split('---TELEMT_UPSTREAMS_JSON---');
         var apiJsonStr = (apiParts[0] || "").trim();
-        var upJsonStr  = (apiParts[1] || "").trim();
+        var upRest     = (apiParts[1] || "");
+        // Split upstream quality (3.3.22+) from basic upstreams data
+        var upQParts   = upRest.split('---TELEMT_UPSTREAM_QUALITY_JSON---');
+        var upJsonStr  = (upQParts[0] || "").trim();
+        var upqRest    = (upQParts[1] || "");
+        // Split users API (3.3.22+) from upstream quality
+        var usrParts   = upqRest.split('---TELEMT_USERS_JSON---');
+        var upqJsonStr = (usrParts[0] || "").trim();
+        var usrJsonStr = (usrParts[1] || "").replace(/<(!DOCTYPE|html[\s>]).*$/is, '').trim();
 
         var apiData = null;
         if (apiJsonStr !== "") {
@@ -1501,6 +1606,25 @@ function fetchMetrics() {
         var upData = null;
         if (upJsonStr !== "" && upJsonStr !== "{}") {
             try { upData = JSON.parse(upJsonStr); } catch(e) { upData = null; }
+        }
+        var upqData = null;
+        if (upqJsonStr !== "" && upqJsonStr !== "{}") {
+            try { upqData = JSON.parse(upqJsonStr); } catch(e) { upqData = null; }
+        }
+        // Users API data: build username -> IP list lookup for tooltips
+        var usersApiData = null;
+        window._telemtUserIPs = {};
+        if (usrJsonStr !== "" && usrJsonStr !== "{}") {
+            try {
+                usersApiData = JSON.parse(usrJsonStr);
+                if (usersApiData && usersApiData.ok && Array.isArray(usersApiData.data)) {
+                    usersApiData.data.forEach(function(u) {
+                        if (u.username && Array.isArray(u.active_unique_ips_list)) {
+                            window._telemtUserIPs[u.username] = u.active_unique_ips_list;
+                        }
+                    });
+                }
+            } catch(e) { usersApiData = null; }
         }
 
         var pidMatch = promText.match(/# telemt_pid=(\d+)/);
@@ -1605,11 +1729,15 @@ function fetchMetrics() {
             var ipStr = '';
             if (stat.ips > 0 || stat.ips_limit > 0) {
                 var ip_col = '#555';
+                // Build IP address tooltip from API data (if available)
+                var ipTip = 'Unique active IPs';
+                var ipAddrs = (window._telemtUserIPs && window._telemtUserIPs[u]) ? window._telemtUserIPs[u] : [];
+                if (ipAddrs.length > 0) ipTip = ipAddrs.join(', ');
                 if (stat.ips_limit > 0) {
-                    ip_col = (stat.ips >= stat.ips_limit) ? '#d9534f' : '#555';
-                    ipStr = " <span style='color:" + ip_col + ";margin-left:3px;' title='Unique IPs / Limit'>IP " + stat.ips + "/" + stat.ips_limit + "</span>";
+                    ip_col = (stat.ips >= stat.ips_limit) ? '#d9534f' : 'inherit';
+                    ipStr = " <span style='color:" + ip_col + ";margin-left:3px;cursor:help;' title='" + escHTML(ipTip) + "'>IP " + stat.ips + "/" + stat.ips_limit + "</span>";
                 } else {
-                    ipStr = " <span style='color:#555;margin-left:3px;' title='Unique active IPs'>IP " + stat.ips + "</span>";
+                    ipStr = " <span style='opacity:0.7;margin-left:3px;cursor:help;' title='" + escHTML(ipTip) + "'>IP " + stat.ips + "</span>";
                 }
             }
             var statHtml = "<div style='display:flex; align-items:center; gap:4px; margin-bottom:2px; flex-wrap:wrap;'><span style='color:#00a000;' title='Total Download (Live + Accumulated)'>&darr; " + formatMB(finalTx) + "</span> <span class='stat-divider'>/</span> <span style='color:#d35400;' title='Total Upload (Live + Accumulated)'>&uarr; " + formatMB(finalRx) + "</span> <span class='stat-divider'>|</span> <span style='color:" + c_col + ";' title='Active TCP connections'>" + dotUser + "&nbsp;" + stat.conns + "</span>" + ipStr + "</div>";
@@ -1632,8 +1760,10 @@ function fetchMetrics() {
         }
 
         if (document.getElementById('diag_gates') && !isOffline) {
-            renderHealthGrid(apiData, promText, upData);
+            renderHealthGrid(apiData, promText, upData, upqData);
         }
+        // Inject health badges into Upstream Proxies tab (if visible)
+        if (upData && !isOffline) { renderUpstreamBadges(upData); }
 
     }).catch(err => {
         window._telemtFetching = false;
@@ -1712,7 +1842,29 @@ function loadScanners() {
     fetch(lu_current_url.split('#')[0] + (lu_current_url.indexOf('?') > -1 ? '&' : '?') + 'get_scanners=1&_t=' + Date.now())
     .then(r => r.text()).then(txt => {
         txt = (txt || '').replace(/<(!DOCTYPE|html[\s>]).*$/is, '').trim();
-        document.getElementById('telemt_log_container').textContent = "=== [ ACTIVE DPI SCANNERS (beobachten.txt) ] ===\n\n" + (txt || 'No data.');
+        var logEl = document.getElementById('telemt_log_container');
+        if (!txt || txt.indexOf('[') === -1) {
+            logEl.textContent = "=== [ ACTIVE DPI SCANNERS ] ===\n\nNo scanner activity detected.";
+        } else {
+            // Parse [category] ip-count format into formatted output
+            var out = "=== [ ACTIVE DPI SCANNERS ] ===\n\n";
+            var parts = txt.split(/(\[[^\]]+\])/);
+            for (var p=0; p<parts.length; p++) {
+                var chunk = parts[p].trim();
+                if (!chunk) continue;
+                if (chunk.charAt(0) === '[') {
+                    out += "--- " + chunk.replace(/[\[\]]/g, '').replace(/-/g, ' ').toUpperCase() + " ---\n";
+                } else {
+                    var entries = chunk.trim().split(/\s+/);
+                    for (var e=0; e<entries.length; e++) {
+                        var m = entries[e].match(/^([0-9a-f.:]+)-(\d+)$/i);
+                        if (m) { out += "  " + m[1] + "  \u2014  " + m[2] + " hits\n"; }
+                    }
+                    out += "\n";
+                }
+            }
+            logEl.textContent = out;
+        }
         btn.value = 'Refresh Scanners';
     }).catch(() => {
         document.getElementById('telemt_log_container').textContent = 'Error fetching scanners data.';
@@ -1732,12 +1884,15 @@ function loadRuntimeInfo() {
         var raw = results[0] || '';
         var apiParts = raw.split('---TELEMT_API_JSON---');
         var promPart = apiParts[0] || raw;
-        var apiJson = '{}', upJson = '{}';
+        var apiJson = '{}', upJson = '{}', upqJson = '{}';
         if (apiParts.length > 1) {
             var rest = apiParts[1];
             var upParts = rest.split('---TELEMT_UPSTREAMS_JSON---');
             apiJson = (upParts[0] || '{}').trim();
-            upJson = (upParts[1] || '{}').replace(/<(!DOCTYPE|html[\s>]).*$/is, '').trim();
+            var upRest = upParts[1] || '{}';
+            var upqParts = upRest.split('---TELEMT_UPSTREAM_QUALITY_JSON---');
+            upJson = (upqParts[0] || '{}').trim();
+            upqJson = (upqParts[1] || '{}').replace(/<(!DOCTYPE|html[\s>]).*$/is, '').trim();
         }
         var out = '=== [ RUNTIME INFO ] ===\n\n';
 
@@ -1745,21 +1900,31 @@ function loadRuntimeInfo() {
         out += '--- Proxy Health ---\n';
         var prom = {};
         var pkeys = ['telemt_uptime_seconds', 'telemt_connections_total', 'telemt_connections_bad_total',
+            'telemt_connections_current', 'telemt_connections_direct_current', 'telemt_connections_me_current',
             'telemt_handshake_timeouts_total', 'telemt_upstream_connect_attempt_total',
             'telemt_upstream_connect_success_total', 'telemt_upstream_connect_fail_total',
-            'telemt_desync_total', 'telemt_me_reconnect_attempts_total', 'telemt_me_reconnect_success_total',
-            'telemt_me_handshake_reject_total', 'telemt_me_crc_mismatch_total'];
+            'telemt_desync_total', 'telemt_secure_padding_invalid_total', 'telemt_reconnect_evict_total',
+            'telemt_me_reconnect_attempts_total', 'telemt_me_reconnect_success_total',
+            'telemt_me_handshake_reject_total', 'telemt_me_crc_mismatch_total',
+            'telemt_me_writers_active_current', 'telemt_me_writers_warm_current',
+            'telemt_me_keepalive_timeout_total', 'telemt_me_kdf_drift_total'];
         for (var i = 0; i < pkeys.length; i++) {
-            var re = new RegExp(pkeys[i] + '\\s+([0-9\\.eE\\+\\-]+)');
+            var re = new RegExp('^' + pkeys[i] + '\\s+([0-9\\.eE\\+\\-]+)', 'm');
             var mv = promPart.match(re); if (mv) { var pk = pkeys[i]; prom[pk] = parseFloat(mv[1]); }
         }
         var upt = prom['telemt_uptime_seconds'] || 0;
         var uptD = Math.floor(upt / 86400), uptH = Math.floor((upt % 86400) / 3600), uptM = Math.floor((upt % 3600) / 60);
         out += 'Uptime:              ' + uptD + 'd ' + uptH + 'h ' + uptM + 'm\n';
+        out += 'Live connections:    ' + (prom['telemt_connections_current'] || 0);
+        if (prom['telemt_connections_me_current'] > 0) out += ' (direct: ' + (prom['telemt_connections_direct_current'] || 0) + ', ME: ' + (prom['telemt_connections_me_current'] || 0) + ')';
+        out += '\n';
         out += 'Connections total:   ' + (prom['telemt_connections_total'] || 0) + '\n';
         out += 'Rejected:            ' + (prom['telemt_connections_bad_total'] || 0) + '\n';
         out += 'Handshake timeouts:  ' + (prom['telemt_handshake_timeouts_total'] || 0) + '\n';
         out += 'DPI tamper (desync): ' + (prom['telemt_desync_total'] || 0) + '\n';
+        if (prom['telemt_secure_padding_invalid_total'] > 0) out += 'Invalid padding:     ' + prom['telemt_secure_padding_invalid_total'] + '\n';
+        if (prom['telemt_reconnect_evict_total'] > 0) out += 'Evicted sessions:    ' + prom['telemt_reconnect_evict_total'] + '\n';
+
         var attempts = prom['telemt_upstream_connect_attempt_total'] || 0;
         var success = prom['telemt_upstream_connect_success_total'] || 0;
         var fail = prom['telemt_upstream_connect_fail_total'] || 0;
@@ -1777,21 +1942,21 @@ function loadRuntimeInfo() {
         out += 'ME enabled (UCI):    ' + (mpMatch ? (mpMatch[1] === '1' ? 'yes' : 'no') : 'unknown') + '\n';
         out += 'Upstream types:      ' + (upTypesMatch ? (upTypesMatch[1] || 'none') : 'none') + '\n';
 
-        // API: ME status
+        // ME writers from Prometheus
+        if (prom['telemt_me_writers_active_current'] > 0 || (mpMatch && mpMatch[1] === '1')) {
+            out += '\n--- ME Writers ---\n';
+            out += 'Active:     ' + (prom['telemt_me_writers_active_current'] || 0) + '\n';
+            out += 'Warm:       ' + (prom['telemt_me_writers_warm_current'] || 0) + '\n';
+            out += 'KDF drift:  ' + (prom['telemt_me_kdf_drift_total'] || 0) + '\n';
+            out += 'Reconnect:  ' + (prom['telemt_me_reconnect_success_total'] || 0) + '/' + (prom['telemt_me_reconnect_attempts_total'] || 0) + '\n';
+            if (prom['telemt_me_keepalive_timeout_total'] > 0) out += 'KA timeout: ' + prom['telemt_me_keepalive_timeout_total'] + '\n';
+        }
+
+        // API: ME details (minimal/all)
         try {
             var api = JSON.parse(apiJson);
             if (api.ok && api.data && api.data.data) {
                 var d = api.data.data;
-                var mew = d.me_writers || {};
-                out += '\n--- ME Writers ---\n';
-                out += 'ME enabled (runtime): ' + (mew.middle_proxy_enabled ? 'yes' : 'no') + '\n';
-                if (mew.summary) {
-                    var s = mew.summary;
-                    out += 'DC groups:     ' + (s.configured_dc_groups || 0) + '\n';
-                    out += 'Endpoints:     ' + (s.available_endpoints || 0) + '/' + (s.configured_endpoints || 0) + '\n';
-                    out += 'Writers alive: ' + (s.alive_writers || 0) + '/' + (s.required_writers || 0) + '\n';
-                    out += 'Coverage:      ' + (s.coverage_pct || 0) + '%\n';
-                }
                 if (d.dcs && d.dcs.dcs && d.dcs.dcs.length > 0) {
                     out += '\n--- DCs ---\n';
                     d.dcs.dcs.forEach(function(dc) {
@@ -1800,21 +1965,39 @@ function loadRuntimeInfo() {
                     });
                 }
             }
-        } catch(e) { out += '\n[API parse error: ' + e.message + ']\n'; }
+        } catch(e) { /* API not available, skip */ }
 
-        // API: Upstreams
+        // API: Upstreams with per-DC latency
         try {
-            var up = JSON.parse(upJson);
-            if (up.ok && up.data && up.data.upstreams && up.data.upstreams.length > 0) {
-                out += '\n--- Upstreams (API) ---\n';
-                up.data.upstreams.forEach(function(u, idx) {
-                    out += '#' + (idx + 1) + ': ' + (u.address || 'direct') +
-                        ' | ' + (u.healthy ? 'OK' : 'FAIL') +
+            var upq = JSON.parse(upqJson);
+            if (upq.ok && upq.data && Array.isArray(upq.data.upstreams) && upq.data.upstreams.length > 0) {
+                out += '\n--- Upstreams (detailed) ---\n';
+                upq.data.upstreams.forEach(function(u, idx) {
+                    out += '#' + (idx + 1) + ': ' + (u.route_kind || '?') + '://' + (u.address || 'direct') +
+                        ' w:' + (u.weight || 1) + ' | ' + (u.healthy ? 'OK' : 'FAIL') +
                         ' | fails=' + (u.fails || 0) +
-                        ' | lat=' + (u.effective_latency_ms != null ? u.effective_latency_ms + 'ms' : '-') + '\n';
+                        ' | lat=' + (u.effective_latency_ms != null ? parseFloat(u.effective_latency_ms).toFixed(1) + 'ms' : '-') + '\n';
+                    if (Array.isArray(u.dc)) {
+                        u.dc.forEach(function(d) {
+                            var dcLat = (d.latency_ema_ms != null) ? parseFloat(d.latency_ema_ms).toFixed(0) + 'ms' : '-';
+                            out += '   DC' + d.dc + ': ' + dcLat + '\n';
+                        });
+                    }
                 });
+            } else {
+                // Fallback: basic upstreams
+                var up = JSON.parse(upJson);
+                if (up.ok && up.data && up.data.upstreams && up.data.upstreams.length > 0) {
+                    out += '\n--- Upstreams ---\n';
+                    up.data.upstreams.forEach(function(u, idx) {
+                        out += '#' + (idx + 1) + ': ' + (u.address || 'direct') +
+                            ' | ' + (u.healthy ? 'OK' : 'FAIL') +
+                            ' | fails=' + (u.fails || 0) +
+                            ' | lat=' + (u.effective_latency_ms != null ? u.effective_latency_ms + 'ms' : '-') + '\n';
+                    });
+                }
             }
-        } catch(e) { out += '\n[Upstream parse error]\n'; }
+        } catch(e) { /* Upstream API not available, skip */ }
 
         // Per-user stats
         if (window._telemtLastStats) {
