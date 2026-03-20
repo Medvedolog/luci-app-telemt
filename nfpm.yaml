@@ -4,7 +4,7 @@
 # ==============================================================================
 name: "luci-app-telemt"
 platform: "linux"
-version: "3.3.22"
+version: "3.3.29"
 section: "net"
 maintainer: "Medvedolog <Medvedolog@github.com>"
 description: |
