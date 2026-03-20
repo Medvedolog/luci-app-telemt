@@ -4,11 +4,11 @@
 # ==============================================================================
 name: "luci-app-telemt"
 platform: "linux"
-version: "3.3.16-11"
+version: "3.3.22"
 section: "net"
 maintainer: "Medvedolog <Medvedolog@github.com>"
 description: |
-  LuCI WebUI for Telemt MTProxy (v3.3.16).
+  LuCI WebUI for Telemt MTProxy (v3.3.Х).
   Features: Strict UCI mode, Zero-CORS API proxy, Graceful degradation, and OpenWrt 25+ CSR support.
 depends:
   - libc
