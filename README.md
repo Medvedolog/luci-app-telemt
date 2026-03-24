@@ -19,7 +19,7 @@
       <ul>
         <li><b>ОС:</b> OpenWrt 21.02 — 25.xx (полная поддержка VDOM и APK-пакетов)</li>
         <li><b>Зависимости:</b> <code>luci-base</code>, <code>luci-compat</code>, <code>ca-bundle</code>, <code>qrencode</code> (для QR-кодов)</li>
-        <li><b>Движок:</b> бинарный файл <code>telemt</code> <b>версии 3.3.15+</b> (<a href="https://github.com/afadillo-a11y/telemt_wrt/releases">Скачать ядро</a>).</li>
+        <li><b>Движок:</b> бинарный файл <code>telemt</code> <b>версии 3.3.15+</b> (<a href="https://github.com/afadillo-a11y/telemt_wrt/releases">Скачать telemt ядро</a>).</li>
       </ul>
       <b>Ключевые возможности:</b>
       <ul>
