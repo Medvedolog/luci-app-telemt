@@ -19,7 +19,6 @@
 --   - Built by vibing bears with tears and honey for OpenWrt (21.02 — 25.x) 🐻🍯
 -- ==============================================================================
 
-
 local sys = require "luci.sys"
 local http = require "luci.http"
 local dsp = require "luci.dispatcher"
