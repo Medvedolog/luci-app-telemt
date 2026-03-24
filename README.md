@@ -13,6 +13,14 @@
       С версии 3.3.x проект перешел на <b>микросервисную архитектуру</b>. Пакет работает как умный генератор конфигурации <code>telemt.toml</code> и надежно управляет жизненным циклом демона через подсистему <code>procd</code>, взаимодействуя с ядром через новый <b>Control API v1</b>.<br><br>
       Реализована полноценная панель управления (Dashboard) с живой статистикой трафика, управлением квотами пользователей (без разрыва соединений), мониторингом DPI-сканеров и встроенным Telegram-ботом.
       <br><br>
+      <b>Микросервисная архитектура</b> — три независимых компонента:
+      <ul>
+        <li><b><a href="https://github.com/afadillo-a11y/telemt_wrt">telemt_wrt</a></b> — Headless ядро: Rust-бинарник MTProto прокси + init.d бэкенд (генерация TOML, lifecycle через procd)</li>
+        <li><b>luci-app-telemt</b> — Веб-интерфейс LuCI: CBI-модель, Zero-CORS API proxy, Diagnostics dashboard</li>
+        <li><b><a href="https://github.com/Medvedolog/telemt-bot">telemt-bot</a></b> — Telegram-бот на чистом BusyBox ash (POSIX sh): 0 зависимостей, 3–5 MB RAM, 3-tier failover (SOCKS→Direct→Emergency), inline keyboards, edit-in-place, health daemon. Работает на любом OpenWrt от MIPS до aarch64.</li>
+      </ul>
+      Каждый компонент устанавливается отдельным IPK/APK, имеет свой lifecycle и может работать автономно.
+      <br><br>
       📖 <b>Архитектура проекта:</b> Подробное описание логики работы модулей и процесса инсталляции доступно в <a href="STRUCTURE_RUS.md">STRUCTURE_RUS.md</a>.
       <br><br>
       <b>Требования:</b>
@@ -24,7 +32,7 @@
       <b>Ключевые возможности:</b>
       <ul>
         <li><b>Zero-Downtime Hot-Reload:</b> Обновление лимитов и добавление пользователей на лету без перезапуска процесса и разрыва текущих сессий.</li>
-        <li><b>Автономный Telegram-бот:</b> Sidecar-демон для управления прокси (создание юзеров, графики нагрузки, алерты) прямо со смартфона.</li>
+        <li><b>Автономный <a href="https://github.com/Medvedolog/telemt-bot">Telegram-бот</a>:</b> Sidecar на чистом BusyBox ash — управление прокси, создание юзеров, алерты, адаптивный Runtime Info — прямо со смартфона. 3-tier failover SOCKS→Direct→Emergency.</li>
         <li><b>Умный Firewall и Жизненный цикл:</b> Атомарная генерация TOML, Graceful shutdown (сохранение статистики при рестарте) и авто-открытие портов в RAM.</li>
         <li><b>Продвинутая Диагностика:</b> Раздельные бейджи маршрутизации (TG PATH / EGRESS), консоль <i>Runtime Info</i>, мониторинг уникальных IP пользователей, пинг до DC Telegram через каскады.</li>
         <li><b>Self-Stealth:</b> Переадресация DPI-сканеров на локальный веб-сервер (uhttpd/nginx) с настоящим сертификатом. Настраивается через <code>mask_host</code> / <code>mask_port</code>.</li>
@@ -37,6 +45,14 @@
       Starting with v3.3.x, the project embraces a <b>micro-service architecture</b>. This package acts as a smart configuration generator for <code>telemt.toml</code> and bulletproof lifecycle manager via <code>procd</code>, communicating with the core engine through the new <b>Control API v1</b>.<br><br>
       It features a full dashboard with live traffic statistics, zero-downtime quota management, DPI scanner monitoring, and an integrated Telegram Bot sidecar.
       <br><br>
+      <b>Micro-service architecture</b> — three independent components:
+      <ul>
+        <li><b><a href="https://github.com/afadillo-a11y/telemt_wrt">telemt_wrt</a></b> — Headless core: Rust MTProto proxy binary + init.d backend (TOML generation, procd lifecycle)</li>
+        <li><b>luci-app-telemt</b> — LuCI web interface: CBI model, Zero-CORS API proxy, Diagnostics dashboard</li>
+        <li><b><a href="https://github.com/Medvedolog/telemt-bot">telemt-bot</a></b> — Telegram bot in pure BusyBox ash (POSIX sh): zero dependencies, 3–5 MB RAM, 3-tier failover (SOCKS→Direct→Emergency), inline keyboards, edit-in-place, health daemon. Runs on any OpenWrt from MIPS to aarch64.</li>
+      </ul>
+      Each component ships as a separate IPK/APK, has its own lifecycle, and can run standalone.
+      <br><br>
       📖 <b>Project Architecture:</b> For an in-depth look at module workflows and the installation process, see <a href="STRUCTURE.md">STRUCTURE.md</a>.
       <br><br>
       <b>Requirements:</b>
@@ -48,7 +64,7 @@
       <b>Key Features:</b>
       <ul>
         <li><b>Zero-Downtime Hot-Reload:</b> Update quotas, add or remove users on the fly without restarting the daemon or dropping active connections.</li>
-        <li><b>Autonomous Telegram Bot:</b> A standalone sidecar daemon to manage your proxy, view CPU/RAM load, and receive alerts directly from your phone.</li>
+        <li><b>Autonomous <a href="https://github.com/Medvedolog/telemt-bot">Telegram Bot</a>:</b> Pure BusyBox ash sidecar — proxy management, user CRUD, alerts, adaptive Runtime Info — from your phone. 3-tier failover SOCKS→Direct→Emergency.</li>
         <li><b>Bulletproof Lifecycle:</b> Atomic TOML generation, graceful shutdowns (zero traffic loss), and smart RAM-based port forwarding.</li>
         <li><b>Advanced Diagnostics:</b> Independent routing badges (TG PATH / EGRESS), <i>Runtime Info</i> console, unique IP tracking per user, per-DC latency through cascades.</li>
         <li><b>Self-Stealth:</b> Redirect DPI scanners to a local web server (uhttpd/nginx) with a real certificate. Configurable via <code>mask_host</code> / <code>mask_port</code>.</li>
@@ -87,7 +103,7 @@ apk add --allow-untrusted luci-app-telemt_3.3.30_noarch.apk
     <th width="85%">Изменения / Highlights</th>
   </tr>
   <tr>
-    <td valign="top"><b>3.3.30</b><br><small>Latest Release Candidate</small></td>
+    <td valign="top"><b>3.3.30</b><br><small>Release Candidate</small></td>
     <td valign="top">
       <b>Self-Stealth, Shadowsocks Upstream, API Integration & Stability Hardening</b><br>
       <ul>
@@ -155,7 +171,7 @@ apk add --allow-untrusted luci-app-telemt_3.3.30_noarch.apk
     </td>
   </tr>
   <tr>
-    <td valign="top"><b>3.1.3</b><br><small>Latest pre-LTS release</small></td>
+    <td valign="top"><b>pre-LTS 3.1.3</b></td>
     <td valign="top">
       <b>Поддержка PROXY protocol и Smart STUN Fallback</b><br>
       <ul>
