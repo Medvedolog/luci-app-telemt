@@ -191,21 +191,31 @@ apk add --allow-untrusted luci-app-telemt_3.3.30_noarch.apk
   <tr>
     <td width="50%" valign="top" align="center" style="border: none; padding: 10px;">
       <small><b>General Settings & Dashboard</b></small><br><br>
-      <img src="https://github.com/user-attachments/assets/4ef2530a-36d1-4722-b7b0-d223914f2579" width="100%" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+      <img src="https://github.com/user-attachments/assets/ee849552-1648-48ed-a328-b8c108dd888c" width="100%" alt="General" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
     </td>
     <td width="50%" valign="top" align="center" style="border: none; padding: 10px;">
-      <small><b>Advanced Tuning and ME</b></small><br><br>
-      <img src="https://github.com/user-attachments/assets/32e216d6-a46e-4485-b4e8-a20d9b114692" width="100%" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+      <small><b>Diagnostics & TG Path Matrix</b></small><br><br>
+      <img src="https://github.com/user-attachments/assets/0f4bb46b-f1d8-4bd7-9d90-880ba68180a4" width="100%" alt="Diagnostics" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top" align="center" style="border: none; padding: 10px;">
-      <small><b>Users Management & Hot-Reload</b></small><br><br>
-      <img src="https://github.com/user-attachments/assets/540a81b8-de08-4383-a906-79a3056caeb6" width="100%" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+      <small><b>Advanced Tuning and ME</b></small><br><br>
+      <img src="https://github.com/user-attachments/assets/9614f4ff-2b08-4e4a-81e4-daa950f41bb5" width="100%" alt="Advanced" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
     </td>
     <td width="50%" valign="top" align="center" style="border: none; padding: 10px;">
-      <small><b>Diagnostics & TG Path Matrix</b></small><br><br>
-      <img src="https://github.com/user-attachments/assets/e064960a-2c28-4ca0-aee2-bd5e56943544" width="100%" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+      <small><b>Users Management & Hot-Reload</b></small><br><br>
+      <img src="https://github.com/user-attachments/assets/44e4590b-733c-44f9-abc1-806c8dc3ae70" width="100%" alt="Users" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top" align="center" style="border: none; padding: 10px;">
+      <small><b>Upstreams (Cascades)</b></small><br><br>
+      <img src="https://github.com/user-attachments/assets/5fb6b11d-1f45-461c-9b30-ce8ff83421b0" width="100%" alt="Upstreams" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+    </td>
+    <td width="50%" valign="top" align="center" style="border: none; padding: 10px;">
+      <small><b>Telegram Bot</b></small><br><br>
+      <img src="https://github.com/user-attachments/assets/e0d85fd3-c213-483f-bfd6-1506c75d39c9" width="100%" alt="TG_bot" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
     </td>
   </tr>
 </table>
