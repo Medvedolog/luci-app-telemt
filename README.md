@@ -24,7 +24,7 @@
       📖 <b>Архитектура проекта:</b> Подробное описание логики работы модулей и процесса инсталляции доступно в <a href="STRUCTURE_RUS.md">STRUCTURE_RUS.md</a>.
       <br><br>
       <b>Требования:</b>
-      <ul>
+      <ul><li><b>Сеть:</b>Белый уличный статический или динамический IP адрес
         <li><b>ОС:</b> OpenWrt 21.02 — 25.xx (полная поддержка VDOM и APK-пакетов)</li>
         <li><b>Зависимости:</b> <code>luci-base</code>, <code>luci-compat</code>, <code>ca-bundle</code>, <code>qrencode</code> (для QR-кодов)</li>
         <li><b>Движок:</b> бинарный файл <code>telemt</code> <b>версии 3.3.15+</b> (<a href="https://github.com/afadillo-a11y/telemt_wrt/releases">Скачать telemt ядро</a>).</li>
