@@ -111,7 +111,7 @@ apk add --allow-untrusted luci-app-telemt_3.4.0_noarch.apk
   <tr>
     <td valign="top"><b>3.4.0</b><br><small>Release Candidate</small></td>
     <td valign="top">
-      <b>Внешние метрики/API, client_mss, динамическая SNI-маска, честная диагностика связи и совместимость с AJAX-темами</b><br>
+      <b>Внешние метрики/API, client_mss, динамическая SNI-маска, честная диагностика связи и совместимость с AJAX-темами (кроме Argon, там ложно-отрицательный статус процесса telemt)</b><br>
       <ul>
         <li><b>Bind-адреса:</b> Новые <code>metrics_listen_addr</code> и <code>api_listen_addr</code> (дропдаун Loopback / All interfaces). Дефолт <code>127.0.0.1</code> — безопасное loopback-поведение сохранено при обновлении. Чинит «метрики недоступны снаружи»: раньше <code>metrics_listen</code> не эмитился вовсе и ядро падало на loopback, а API был жёстко на <code>0.0.0.0</code>.</li>
         <li><b>client_mss (ядро 3.4.18):</b> Глобальный клампинг TCP MSS в <code>[server]</code>. Пресеты <code>tspu</code> / <code>extreme-low</code> / <code>2in8</code> для абонентов за TSPU/DPI. Пусто = дефолт ядра.</li>
