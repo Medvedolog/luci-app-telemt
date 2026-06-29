@@ -1,0 +1,237 @@
+# .github/workflows/import_build_from_zip.yml — v1.0 (luci-app-telemt)
+# Imports a development ZIP into the luci-app-telemt repository source tree.
+# Run manually: Actions → import-from-zip → Run workflow
+#
+# Expected layout INSIDE the zip (under the source-root folder):
+#   nfpm.yaml
+#   telemt.config
+#   README.md                      (optional)
+#   scripts/{postinst,prerm,postrm}
+#   usr/lib/lua/luci/controller/telemt.lua
+#   usr/lib/lua/luci/model/cbi/telemt.lua
+#   usr/share/luci/menu.d/luci-app-telemt.json
+#   usr/share/rpcd/acl.d/luci-app-telemt.json
+#
+# NOTE: this imports the LuCI package only. The core (telemt_wrt) and the
+# Telegram bot (telemt-bot) live in separate repos and are updated by hand.
+
+name: import-from-zip
+
+on:
+  workflow_dispatch:
+    inputs:
+      zip_path:
+        description: "Path to zip inside the repository"
+        required: true
+        default: "_incoming/luci-app-telemt-3.4.0.zip"
+      source_root:
+        description: "Root folder name inside the zip (blank = auto-detect first dir)"
+        required: false
+        default: "luci-app-telemt"
+      commit_message:
+        description: "Commit message"
+        required: true
+        default: "Import luci-app-telemt 3.4.0 from ZIP"
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate zip exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f "${{ inputs.zip_path }}" ]; then
+            echo "ERROR: zip not found at '${{ inputs.zip_path }}'"
+            echo "Available files in _incoming/:"
+            ls -la _incoming/ 2>/dev/null || echo "  (_incoming/ does not exist)"
+            exit 1
+          fi
+
+      - name: Unpack zip
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf _workzip
+          mkdir -p _workzip
+          unzip -q "${{ inputs.zip_path }}" -d _workzip
+          echo "=== ZIP contents (top 3 levels) ==="
+          find _workzip -maxdepth 3 -type f | sort | head -40
+
+      - name: Detect source root
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="${{ inputs.source_root }}"
+
+          # 1) exact match if a source_root was given
+          if [ -n "$ROOT" ] && [ -d "_workzip/$ROOT" ]; then
+            echo "src=_workzip/$ROOT" >> "$GITHUB_OUTPUT"
+            echo "Found exact match: _workzip/$ROOT"
+            exit 0
+          fi
+
+          # 2) if the zip has exactly one top-level dir, use it
+          dir_count="$(find _workzip -mindepth 1 -maxdepth 1 -type d | wc -l)"
+          first_dir="$(find _workzip -mindepth 1 -maxdepth 1 -type d | head -n 1 || true)"
+          if [ -n "$first_dir" ]; then
+            echo "src=$first_dir" >> "$GITHUB_OUTPUT"
+            echo "Using first directory: $first_dir (top-level dirs: $dir_count)"
+            exit 0
+          fi
+
+          # 3) zip may be flat (files at root) — use _workzip itself
+          if [ -f "_workzip/nfpm.yaml" ]; then
+            echo "src=_workzip" >> "$GITHUB_OUTPUT"
+            echo "Flat zip detected, using _workzip"
+            exit 0
+          fi
+
+          echo "ERROR: Cannot detect source root inside zip"
+          exit 1
+
+      - name: Validate expected zip layout
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="${{ steps.detect.outputs.src }}"
+
+          # Required pieces for the LuCI package
+          test -f "$SRC/nfpm.yaml"            || { echo "MISSING: nfpm.yaml"; exit 1; }
+          test -f "$SRC/telemt.config"        || { echo "MISSING: telemt.config"; exit 1; }
+          test -d "$SRC/usr/lib/lua/luci"     || { echo "MISSING: usr/lib/lua/luci"; exit 1; }
+          test -f "$SRC/usr/lib/lua/luci/model/cbi/telemt.lua" \
+            || { echo "MISSING: model/cbi/telemt.lua"; exit 1; }
+
+          echo "ZIP layout validated OK"
+          echo "=== Source tree ==="
+          find "$SRC" -maxdepth 4 -type f | sort | head -60
+
+      - name: Lua syntax check (luac if available)
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="${{ steps.detect.outputs.src }}"
+          if command -v luac >/dev/null 2>&1; then
+            CHECK=luac
+          else
+            sudo apt-get update -qq && sudo apt-get install -y lua5.1 >/dev/null 2>&1 || true
+            command -v luac5.1 >/dev/null 2>&1 && CHECK=luac5.1 || CHECK=""
+          fi
+          if [ -z "$CHECK" ]; then
+            echo "WARN: no Lua compiler available, skipping syntax check"
+            exit 0
+          fi
+          fail=0
+          find "$SRC/usr/lib/lua/luci" -type f -name '*.lua' | while IFS= read -r f; do
+            if "$CHECK" -p "$f" 2>/tmp/luaerr; then
+              echo "OK:   $f"
+            else
+              echo "FAIL: $f"; cat /tmp/luaerr; echo "1" > /tmp/luafail
+            fi
+          done
+          if [ -f /tmp/luafail ]; then echo "Lua syntax check failed"; exit 1; fi
+
+      - name: Create target directories
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p usr/lib/lua/luci
+          mkdir -p usr/share/luci/menu.d
+          mkdir -p usr/share/rpcd/acl.d
+          mkdir -p scripts
+
+      - name: Import files preserving repo layout
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="${{ steps.detect.outputs.src }}"
+
+          # Clean ONLY the parts we manage. We never touch .github/, .git/,
+          # _incoming/, STRUCTURE*.md, or other repo-local files.
+          rm -rf usr/lib/lua/luci/*
+          rm -rf usr/share/luci/menu.d/*
+          rm -rf usr/share/rpcd/acl.d/*
+          rm -rf scripts/*
+
+          # LuCI code (controller + cbi model)
+          cp -a "$SRC/usr/lib/lua/luci/." usr/lib/lua/luci/
+
+          # menu.d / acl.d (optional but expected)
+          if [ -d "$SRC/usr/share/luci/menu.d" ]; then
+            cp -a "$SRC/usr/share/luci/menu.d/." usr/share/luci/menu.d/
+          fi
+          if [ -d "$SRC/usr/share/rpcd/acl.d" ]; then
+            cp -a "$SRC/usr/share/rpcd/acl.d/." usr/share/rpcd/acl.d/
+          fi
+
+          # Maintainer scripts
+          if [ -d "$SRC/scripts" ]; then
+            cp -a "$SRC/scripts/." scripts/
+          fi
+
+          # Root-level managed files
+          cp -a "$SRC/nfpm.yaml" nfpm.yaml
+          cp -a "$SRC/telemt.config" telemt.config
+          [ -f "$SRC/README.md" ] && cp -a "$SRC/README.md" README.md || echo "note: no README.md in zip, keeping existing"
+
+          # Do NOT overwrite .github/workflows — managed separately.
+
+      - name: Normalize permissions
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Maintainer scripts must be executable; Lua/config/json stay 0644.
+          find scripts -type f -exec chmod +x {} \; 2>/dev/null || true
+          find usr -type f \( -name '*.lua' -o -name '*.json' \) -exec chmod 0644 {} \; 2>/dev/null || true
+          chmod 0644 nfpm.yaml telemt.config 2>/dev/null || true
+
+      - name: Post-import validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "=== Imported files ==="
+          find usr scripts -type f 2>/dev/null | sort
+          echo ""
+          echo "=== Key files check ==="
+          test -f usr/lib/lua/luci/model/cbi/telemt.lua && echo "OK: CBI model" || echo "WARN: CBI model not found"
+          test -f usr/lib/lua/luci/controller/telemt.lua && echo "OK: controller" || echo "WARN: controller not found"
+          test -f usr/share/luci/menu.d/luci-app-telemt.json && echo "OK: menu.d" || echo "WARN: menu.d not found"
+          test -f usr/share/rpcd/acl.d/luci-app-telemt.json && echo "OK: acl.d" || echo "WARN: acl.d not found"
+          test -f telemt.config && echo "OK: telemt.config" || echo "WARN: telemt.config not found"
+          test -f nfpm.yaml && echo "OK: nfpm.yaml" || echo "WARN: nfpm.yaml not found"
+
+      - name: Show git diff summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          git status --short
+          git diff --stat
+
+      - name: Commit and push changes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add usr scripts nfpm.yaml telemt.config README.md
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git commit -m "${{ inputs.commit_message }}"
+          git push
