@@ -1,0 +1,151 @@
+# .github/workflows/bootstrap_from_incoming.yml — one-shot repo seeder
+#
+# PURPOSE: unpack a full repo-zip that already sits in _incoming/ into the
+# repository root, committing EVERYTHING (including nfpm.yaml, root/, scripts/,
+# CHANGELOG.md, Makefile, and the other .github/workflows/*). Use this ONCE to
+# seed an empty/new repo when you can't unzip via the GitHub web UI.
+#
+# After the repo is seeded, use import_build_from_zip.yml for routine dev-zip
+# imports (it deliberately does NOT touch .github/). You can delete this
+# bootstrap file afterwards.
+#
+# HOW TO USE (all from the browser):
+#   1. The repo-zip is already in _incoming/ (e.g. luci-app-podkop-bot-repo-0.16.82.zip).
+#   2. Create THIS file via Add file → Create new file at the path
+#      .github/workflows/bootstrap_from_incoming.yml and paste this content.
+#   3. Actions → bootstrap-from-incoming → Run workflow, set zip_path if needed.
+
+name: bootstrap-from-incoming
+
+on:
+  workflow_dispatch:
+    inputs:
+      zip_path:
+        description: "Path to the repo-zip inside the repository"
+        required: true
+        default: "_incoming/luci-app-podkop-bot-repo-0.16.82.zip"
+      source_root:
+        description: "Root folder name inside the zip (blank = auto-detect first dir)"
+        required: false
+        default: "luci-app-podkop-bot"
+      commit_message:
+        description: "Commit message"
+        required: true
+        default: "Bootstrap repo from _incoming zip"
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate zip exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f "${{ inputs.zip_path }}" ]; then
+            echo "ERROR: zip not found at '${{ inputs.zip_path }}'"
+            echo "Files in _incoming/:"
+            ls -la _incoming/ 2>/dev/null || echo "  (_incoming/ does not exist)"
+            exit 1
+          fi
+
+      - name: Unpack zip
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf _workzip
+          mkdir -p _workzip
+          unzip -q "${{ inputs.zip_path }}" -d _workzip
+          echo "=== ZIP contents (top 3 levels) ==="
+          find _workzip -maxdepth 3 | sort | head -60
+
+      - name: Detect source root
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="${{ inputs.source_root }}"
+          if [ -n "$ROOT" ] && [ -d "_workzip/$ROOT" ]; then
+            echo "src=_workzip/$ROOT" >> "$GITHUB_OUTPUT"
+            echo "Exact match: _workzip/$ROOT"; exit 0
+          fi
+          first_dir="$(find _workzip -mindepth 1 -maxdepth 1 -type d | head -n 1 || true)"
+          if [ -n "$first_dir" ]; then
+            echo "src=$first_dir" >> "$GITHUB_OUTPUT"
+            echo "First dir: $first_dir"; exit 0
+          fi
+          if [ -f "_workzip/nfpm.yaml" ]; then
+            echo "src=_workzip" >> "$GITHUB_OUTPUT"
+            echo "Flat zip"; exit 0
+          fi
+          echo "ERROR: cannot detect source root"; exit 1
+
+      - name: Copy everything into repo root
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="${{ steps.detect.outputs.src }}"
+          # Copy all regular files AND dotfiles (so .github/ comes across too),
+          # but never clobber .git/ or the _incoming/ payload.
+          shopt -s dotglob
+          for entry in "$SRC"/*; do
+            base="$(basename "$entry")"
+            case "$base" in
+              .git|_incoming) echo "skip: $base"; continue ;;
+            esac
+            echo "copy: $base"
+            cp -a "$entry" ./
+          done
+
+      - name: Normalize permissions
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -d root ]; then
+            find root -type f -exec chmod 0644 {} \;
+            for x in \
+              root/usr/libexec/rpcd/podkop_bot \
+              root/usr/lib/podkop_bot/install.sh \
+              root/usr/lib/podkop_bot/podkop_bot \
+              root/usr/lib/podkop_bot/podkop_bot_init; do
+              [ -f "$x" ] && chmod 0755 "$x"
+            done
+          fi
+          find scripts -type f -exec chmod 0755 {} \; 2>/dev/null || true
+
+      - name: Post-copy listing
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "=== repo top level ==="
+          ls -la
+          echo "=== workflows present ==="
+          ls -la .github/workflows/ 2>/dev/null || echo "(none)"
+          echo "=== exec bits under root/ ==="
+          find root -type f -perm -u+x 2>/dev/null | sort || true
+
+      - name: Cleanup work dir
+        shell: bash
+        run: rm -rf _workzip
+
+      - name: Commit and push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Stage everything except the _incoming payload (kept as-is in repo).
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"; exit 0
+          fi
+          git commit -m "${{ inputs.commit_message }}"
+          git push
