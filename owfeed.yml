@@ -1,0 +1,155 @@
+# yaml-language-server: $schema=https://owfeed.org/schema/v1.json
+#
+# What this repository publishes for OpenWrt. This replaces nfpm.yaml.
+#
+#   tools/stage.sh <version>   lay the files out as a router filesystem (dist/root)
+#   owfeed build               dist/noarch/*.apk  (OpenWrt 25.12+)
+#                              dist/all/*.ipk     (OpenWrt 24.10 and earlier)
+#   owfeed sign                the author's signature, INSIDE the .apk
+#   owfeed release             a signed manifest of the whole release
+#
+# WHY THIS REPLACED nfpm, and it is not a preference:
+#
+#   1. nfpm's `--packager apk` writes an ALPINE apk v2 container. OpenWrt 25.12
+#      ships apk-tools 3, whose native format is APKv3/ADB — a different container
+#      with a different signature scheme. owfeed builds the real thing, using the
+#      host `apk` taken out of an OpenWrt SDK release.
+#
+#   2. Nothing nfpm produced was signed, so no package feed could establish where a
+#      release came from. A .sha256 beside an artifact says the download was not
+#      corrupted and nothing about who produced it.
+#
+#   3. nfpm.yaml carried a static `version: 3.4.0` that CI rewrote with `sed` on
+#      every run — a version that is wrong in the working tree by design. The tag is
+#      the source of truth now, and tools/stage.sh derives everything from it.
+#
+# See RELEASING.md for the two keys, the two secrets and the release procedure.
+version: 1
+
+feed:
+  name: luci-app-telemt
+  # This repository publishes RELEASE ASSETS, not a feed of its own. A feed's key,
+  # once installed on a router, validates an index claiming ANY package name — it
+  # would accept a higher version of dropbear — and that is far more authority than
+  # one LuCI app should ask anyone for.
+  #
+  # So the packages built here are published as GitHub release assets with a signed
+  # manifest beside them, and a community feed ingests that, verifies the signature
+  # against a pinned key, and signs its own index. This URL is where a person goes
+  # to find out what this is.
+  url: https://github.com/Medvedolog/luci-app-telemt
+  title: luci-app-telemt
+  maintainer: "Medvedolog <Medvedolog@github.com>"
+  homepage: https://github.com/Medvedolog/luci-app-telemt
+
+# Both release lines, from the same staged tree. Routers stay on a release for
+# years, so publishing only the newer line would leave most of the installed base
+# where it is — and this app supports 21.02 upwards.
+#
+# The difference is not only the container: opkg calls an architecture-independent
+# package `all` where apk requires `noarch` and REJECTS `all` as uninstallable.
+# owfeed emits each under the name its own manager understands, which is also what
+# keeps the .ipk asset named the way earlier releases named it.
+releases:
+  - line: "25.12"
+    default: true
+    format: apk
+  - line: "24.10"
+    format: ipk
+
+# TWO KEYS, AND ONLY THE FIRST SIGNS ANYTHING A USER EVER SEES.
+#
+#   key       an EC prime256v1 key. `owfeed sign` puts this signature INSIDE the
+#             .apk and it stays there: apk signature blocks are additive, so a feed
+#             that re-signs the package adds its own beside this one rather than
+#             replacing it. That is what lets somebody take a published package,
+#             fetch this public key from somewhere that is not the feed, and confirm
+#             who built it — a year later, trusting no feed at all.
+#
+#   usign-key AN INDEX KEY, AND THIS REPOSITORY PUBLISHES NO INDEX. It is declared
+#             only because `owfeed index` refuses to run without one, and CI runs
+#             index followed by `owfeed doctor` as a self-check — doctor reads a
+#             built index and reports what has burned package feeds before, which
+#             for this package includes the one finding that matters most: a config
+#             file shipped without being declared in conffiles:.
+#
+#             CI generates a THROWAWAY key for that, uses it inside one job and
+#             never publishes the index it signs. There is no repository secret
+#             behind this variable and there must never be one.
+#
+# The third key — the usign RELEASE key that signs the manifest — is not named here
+# at all: `owfeed release` takes it on the command line, in the one job that can
+# reach a secret. RELEASING.md has all three.
+signing:
+  key: env:OWFEED_SIGN_KEY
+  usign-key: env:OWFEED_INDEX_KEY
+
+# Required by the schema and unused here: `publish` is the stage that hands a built
+# feed to a host, and this repository stops after `build` and `release`.
+publish:
+  - target: github-pages
+
+packages:
+  - name: luci-app-telemt
+    build: mkpkg
+
+    # noarch, never "all" — see the note on `releases:`. The .ipk gets `all` from
+    # owfeed itself. Honestly noarch: the payload is Lua, JSON and a UCI file.
+    arch: noarch
+
+    # Written by tools/stage.sh from the tag, with the -r<n> revision APKv3 demands.
+    version-from: file:./dist/VERSION
+    files: ./dist/root
+
+    # Carried into the feed's index and shown by `apk info` and LuCI's package list.
+    # Factual and under 512 bytes.
+    description: "LuCI web interface for the telemt MTProto proxy: configuration, user and quota management, diagnostics and metrics."
+
+    # The list nfpm.yaml declared, unchanged. luci-compat is what CBI needs on 23.05
+    # and later; qrencode is what generates the connection QR codes; ca-bundle is
+    # what makes the app's outbound HTTPS work at all.
+    depends: [libc, luci-base, luci-compat, qrencode, ca-bundle]
+
+    # NO `license:` LINE, and that is a gap rather than a decision.
+    #
+    # This repository has no LICENSE file and no licence statement anywhere, and a
+    # repository without one grants nobody the right to redistribute it, however
+    # public it is. Declaring one here would be inventing permission the author has
+    # not given.
+    #
+    # It is also the one thing that will stop this package being carried by a
+    # community feed: the intake asks for an SPDX identifier and for where the
+    # sources are, because redistributing a binary is a second act of distribution
+    # and the licence is what permits it. Add a LICENSE file, then add the matching
+    # identifier here — RELEASING.md has the details.
+
+    # Carried into the index and into what `apk info` prints on the router. In a feed
+    # of other people's work it is the only thing telling a user who published what
+    # they just installed, and the feed's CI refuses a package that does not set it.
+    url: https://github.com/Medvedolog/luci-app-telemt
+    maintainer: "Medvedolog <Medvedolog@github.com>"
+
+    # Which commit produced these bytes, recorded inside the package. env:, because
+    # the value changes with every commit and belongs in CI rather than in a file
+    # somebody has to remember to update.
+    repo-commit: env:GITHUB_SHA
+
+    # /etc/config/telemt IS THE USER'S FILE, and this is the line that says so.
+    # nfpm expressed it as `type: config`; the consequence of losing it is the same
+    # in both: the package manager treats the file as an ordinary one it owns, and
+    # replaces the admin's entire proxy configuration with these defaults on every
+    # upgrade — silently, reporting success.
+    conffiles: ["/etc/config/telemt"]
+
+    # The hooks that used to be nfpm's postinstall/preremove/postremove. They are
+    # the repository's scripts/ files, staged through tools/stage.sh, which strips
+    # CRLF and the UTF-8 BOM — either of those makes OpenWrt's sh fail to run the
+    # script at all, in a way that reads as a broken package.
+    #
+    # On 24.10 owfeed maps post-install onto opkg's postinst and pre-deinstall onto
+    # its prerm. post-deinstall reaches apk but not opkg, so on 24.10 the LuCI cache
+    # is not cleared on removal — a real removal only, never an upgrade.
+    scripts:
+      post-install: ./dist/scripts/postinst
+      pre-deinstall: ./dist/scripts/prerm
+      post-deinstall: ./dist/scripts/postrm

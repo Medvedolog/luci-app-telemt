@@ -2,3 +2,15 @@
 .vscode/sftp.json
 .vscode/settings.json
 .DS_Store
+
+# Build output of tools/stage.sh and `owfeed build`.
+dist/
+out/
+*.apk
+
+# Signing keys. They belong in GitHub secrets and nowhere else — neither one can
+# be revoked, and a key committed once is a key in the history forever.
+keys-setup/
+*.pem
+*.key
+!*.pub.pem

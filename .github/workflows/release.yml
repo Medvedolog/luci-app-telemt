@@ -1,0 +1,176 @@
+# Publish a release: two OpenWrt packages, a signature beside each, and a signed
+# manifest that says what the release contains.
+#
+# HOW TO CUT ONE — RELEASING.md is the long version:
+#
+#     git tag 3.4.1 && git push origin 3.4.1
+#
+# WHAT COMES OUT, on the GitHub release page:
+#
+#     luci-app-telemt-3.4.1-r1.apk        OpenWrt 25.12 and later
+#     luci-app-telemt-3.4.1-r1.apk.sig
+#     luci-app-telemt_3.4.1-r1_all.ipk    OpenWrt 24.10 and earlier
+#     luci-app-telemt_3.4.1-r1_all.ipk.sig
+#     manifest.txt                        what is in this release, with sizes and hashes
+#     manifest.txt.sig
+#
+# WHAT CHANGED FROM THE nfpm WORKFLOW THIS REPLACES:
+#
+#   * The .apk is now an APKv3/ADB container, the format OpenWrt 25.12's apk-tools 3
+#     actually uses. nfpm's `--packager apk` writes an Alpine apk v2, which is a
+#     different container.
+#   * Every artifact is signed, and the release carries a signed manifest. Nothing
+#     published before was signed at all.
+#   * The version comes from the tag rather than from a `version:` field that CI
+#     rewrote with `sed` on every run.
+#
+# WHY THE MANIFEST EXISTS. A community feed watches this repository for releases. It
+# fetches manifest.txt and manifest.txt.sig, verifies one against the other with a
+# public key it has pinned, and only then reads what is inside — every package's
+# name, size and sha256. That is what lets the feed's own signature mean "the author
+# published this" rather than "this downloaded without being corrupted".
+#
+# A .sha256 file cannot do that job. Served by the same host as the artifact, it says
+# the download was not corrupted and nothing about who produced it: whoever can
+# replace the package can replace the checksum beside it. A signature cannot be
+# replaced without the key, and the key is not in this repository.
+
+name: Release
+
+on:
+  push:
+    # Every tag this project has ever used: 3.4.0, 3.3.30, v3.1.3-1. The old workflow
+    # matched '3.3.*' and '[4-9]*', which did not match 3.4.0 — the current release
+    # had to be cut by hand from workflow_dispatch.
+    tags:
+      - '[0-9]*'
+      - 'v[0-9]*'
+
+  # For re-publishing a tag whose release job failed — a network blip, an expired
+  # action. It builds from the tag you name and nothing else.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to (re)publish, e.g. 3.4.1"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  # The same checks a pull request gets, run again before anything is published.
+  # `uses:` rather than a copy, so the two cannot drift apart.
+  check:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    name: Build, sign and publish
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - uses: owfeed/owfeed/setup@v0.4.5
+        with:
+          version: v0.4.5
+
+      - name: Resolve the tag
+        run: echo "TAG=${{ inputs.tag || github.ref_name }}" >> "$GITHUB_ENV"
+
+      # See the same step in ci.yml: a fixed epoch is what makes the package's
+      # identity depend on its contents rather than on when it was built.
+      - name: Fix the build epoch
+        run: echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)" >> "$GITHUB_ENV"
+
+      # The version is the tag, normalised to what APKv3 accepts: 3.4.0 becomes
+      # 3.4.0-r1 and v3.1.3-1 becomes 3.1.3-r1. tools/stage.sh also refuses to run
+      # if the version on the LuCI page disagrees with it.
+      - name: Stage the router filesystem
+        run: ./tools/stage.sh "$TAG"
+
+      - name: Build both containers
+        run: owfeed build
+
+      # THE AUTHOR SIGNATURE, and it goes INSIDE the .apk.
+      #
+      # apk signature blocks are additive: a feed that re-signs this package adds its
+      # signature beside this one instead of replacing it, so the package a router
+      # finally installs carries both. Anyone who wants to check this repository
+      # directly can install the public half of this key and verify it themselves,
+      # trusting no feed at all.
+      #
+      # The key is a REPOSITORY SECRET, which is why this job is separate from the
+      # checks above: those run on pull requests, and a secret must never be
+      # reachable from code a fork can change.
+      - name: Sign the packages
+        env:
+          OWFEED_SIGN_KEY: ${{ secrets.TELEMT_SIGN_KEY }}
+        run: |
+          set -eu
+          [ -n "${OWFEED_SIGN_KEY:-}" ] || {
+            echo "TELEMT_SIGN_KEY is not set. Without it the published package carries"
+            echo "no evidence of who built it, and no package feed will carry it."
+            echo "Create both keys once with ./tools/setup-keys.sh — see RELEASING.md."
+            exit 1
+          }
+          owfeed sign
+
+      # THE MANIFEST, signed with the OTHER key.
+      #
+      # usign rather than the EC key above, because usign is the scheme OpenWrt
+      # already ships: a router verifies this file with nothing installed, and opkg on
+      # 24.10 cannot verify a standalone .ipk at all. So this is the signature that
+      # covers the release as a whole, including the LIST of what is in it — which the
+      # per-package signatures cannot, each covering only itself.
+      #
+      # `--repo` is written into the manifest and readers check it against where they
+      # fetched it from. A signature proves WHO wrote a file and never WHAT IT IS
+      # ABOUT, so without that line a manifest lifted from another repository's
+      # release would verify perfectly under this one's name.
+      - name: Write and sign the manifest
+        env:
+          OWFEED_RELEASE_KEY: ${{ secrets.TELEMT_USIGN_KEY }}
+        run: |
+          set -eu
+          [ -n "${OWFEED_RELEASE_KEY:-}" ] || {
+            echo "TELEMT_USIGN_KEY is not set. A release without a signed manifest is"
+            echo "one no package feed can ingest."
+            echo "Create both keys once with ./tools/setup-keys.sh — see RELEASING.md."
+            exit 1
+          }
+          owfeed release --repo "$GITHUB_REPOSITORY" --tag "$TAG"
+          echo
+          cat dist/manifest.txt
+
+      # Release assets are FLAT — there are no directories on a release page — while
+      # owfeed leaves the packages under dist/noarch and dist/all, because apk derives
+      # a filename from a package's name and version alone and two architectures
+      # cannot therefore share one directory. The manifest names the files without
+      # paths, which is what a router asks for, so flattening is what makes the
+      # manifest and the release page agree.
+      #
+      # Named extensions rather than "everything one level down": dist/root is the
+      # staged router filesystem and has no business on a release page.
+      - name: Collect the assets
+        run: |
+          set -eu
+          mkdir -p upload
+          cp dist/manifest.txt dist/manifest.txt.sig upload/
+          for f in dist/*/*.apk dist/*/*.ipk dist/*/*.sig; do
+            [ -e "$f" ] || continue
+            cp "$f" upload/
+          done
+          ls -l upload/
+
+      - uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ env.TAG }}
+          name: "Release ${{ env.TAG }}"
+          files: upload/*
+          generate_release_notes: true
