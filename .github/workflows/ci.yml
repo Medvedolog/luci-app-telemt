@@ -1,0 +1,134 @@
+# The release pipeline itself is not here — it is owfeed's `package.yml`, which every
+# package repository in this ecosystem shares. What is here is this app's own gates.
+#
+# Every step is one line. What each gate is for lives in the script it names, or in
+# the owfeed check it runs.
+
+name: CI
+
+on:
+  push:
+    tags: ['[0-9]*', 'v[0-9]*']
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sources:
+    name: Sources parse
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # LUA 5.1, because that is what LuCI runs. A syntax error in the CBI model is not
+      # a subtle bug on a router: the page renders blank and the only trace is a line in
+      # the rpcd log.
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq lua5.1
+      - run: sh tools/check-sources.sh
+
+  # No key anywhere in this job. `owfeed check` is build, sign, index and doctor on
+  # keys owfeed generates and throws away, so a pull request exercises the pipeline
+  # that publishes rather than a second one that drifts from it.
+  build:
+    name: Build the packages
+    needs: sources
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # tools/stage.sh takes the version from the newest tag when none is given.
+          fetch-depth: 0
+
+      - uses: owfeed/owfeed/setup@v0.5.0
+        with:
+          version: v0.5.0
+
+      # The commit's timestamp, not the job's: a package's identity is a hash over its
+      # payload and mkpkg records mtimes, so re-running a release over the same commit
+      # has to produce the same bytes. It applies to BOTH containers — the nfpm
+      # workflow set it for the ipk leg and unset it for the apk one, so identical
+      # content rebuilt into a package that claimed to be new.
+      - run: echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)" >> "$GITHUB_ENV"
+
+      - run: ./tools/stage.sh
+      - run: owfeed plan
+      - run: owfeed check
+      - run: owfeed build
+      - run: sh tools/check-package.sh
+
+      # dist/root and dist/scripts are staging, not output.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: owfeed-packages
+          path: |
+            dist/noarch
+            dist/all
+          if-no-files-found: error
+
+  # Everything above proves the package was BUILT correctly. None of it proves the
+  # thing a user cares about: that installing it produces a router whose page renders.
+  # owlab boots a real OpenWrt, installs the package and logs into LuCI first — an
+  # unauthenticated request under /cgi-bin/luci/admin is a redirect to the login form,
+  # which is why a hand-written curl reports 403 on a healthy page.
+  #
+  # No key exists anywhere in this job: it asserts that a package works, never that
+  # anyone should trust it.
+  verify:
+    name: The package works on a real router
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: owfeed-packages
+          path: dist/
+
+      # ONE RELEASE PER STEP: 25.12 is apk and 24.10 is opkg, and neither will install
+      # the other's file.
+      - name: Install this build on 25.12 and render its page
+        uses: owfeed/owlab/action@v0.5.3
+        with:
+          version: v0.5.3
+          releases: "25.12.5"
+          install: dist/noarch/luci-app-telemt-*.apk
+          # `uci telemt.general` is how you check that the shipped UCI defaults are
+          # actually readable: without them the CBI tabs render empty, which is the
+          # reason telemt.config is in the package at all.
+          assert: |
+            package luci-app-telemt
+            file /usr/lib/lua/luci/model/cbi/telemt.lua
+            file /usr/share/rpcd/acl.d/luci-app-telemt.json
+            uci telemt.general
+            http 200 /cgi-bin/luci/admin/services/telemt
+
+      - name: Install this build on 24.10 and render its page
+        uses: owfeed/owlab/action@v0.5.3
+        with:
+          version: v0.5.3
+          releases: "24.10.8"
+          install: dist/all/luci-app-telemt_*.ipk
+          assert: |
+            package luci-app-telemt
+            file /usr/lib/lua/luci/model/cbi/telemt.lua
+            file /usr/share/rpcd/acl.d/luci-app-telemt.json
+            uci telemt.general
+            http 200 /cgi-bin/luci/admin/services/telemt
+
+  # The only job that holds a key, and `needs: [build, verify]` is what keeps a tag
+  # from publishing a package no router has installed.
+  release:
+    name: Sign and publish
+    needs: [build, verify]
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    uses: owfeed/owfeed/.github/workflows/package.yml@v0.5.0
+    secrets:
+      sign-key: ${{ secrets.TELEMT_SIGN_KEY }}
+      usign-key: ${{ secrets.TELEMT_USIGN_KEY }}
+    with:
+      owfeed-version: v0.5.0
