@@ -1,19 +1,17 @@
-# Everything that can be checked WITHOUT a key.
+# The release pipeline itself is not here — it is owfeed's `package.yml`, which every
+# package repository in this ecosystem shares. What is here is this app's own gates.
 #
-# NO SECRETS ARE USED HERE, and that is structural rather than tidy: this workflow
-# runs on pull_request, which means it runs code from forks. The keys it needs are
-# generated inside the job, used once and thrown away.
-#
-# `workflow_call` is here so the release workflow runs exactly these checks before
-# it publishes anything, rather than a copy of them that drifts.
+# Every step is one line. What each gate is for lives in the script it names, or in
+# the owfeed check it runs.
 
 name: CI
 
 on:
   push:
+    tags: ['[0-9]*', 'v[0-9]*']
     branches: [main]
   pull_request:
-  workflow_call:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -25,192 +23,112 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # LUA 5.1, because that is what LuCI runs. A syntax error in the CBI model is
-      # not a subtle bug on a router: the page renders blank and the only trace is a
-      # line in the rpcd log. Nothing but a parser finds it before a user does.
-      - name: Install Lua 5.1
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq lua5.1
+      # LUA 5.1, because that is what LuCI runs. A syntax error in the CBI model is not
+      # a subtle bug on a router: the page renders blank and the only trace is a line in
+      # the rpcd log.
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq lua5.1
+      - run: sh tools/check-sources.sh
 
-      - name: Parse the Lua
-        run: |
-          set -eu
-          fail=0
-          for f in $(find usr -name '*.lua' | sort); do
-            if luac5.1 -p "$f"; then echo "ok    $f"; else echo "FAIL  $f"; fail=1; fi
-          done
-          [ "$fail" -eq 0 ]
-
-      # The menu and the ACL are read by LuCI and by rpcd, and both fail closed on
-      # malformed JSON: the menu entry simply does not appear, and every RPC the page
-      # makes is denied. Neither says why.
-      - name: Parse the JSON
-        run: |
-          set -eu
-          for f in $(find usr -name '*.json' | sort); do
-            python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$f"
-            echo "ok    $f"
-          done
-
-      # BOTH PARSERS, because the router runs neither of the ones on this machine.
-      # dash is the close stand-in for the BusyBox ash that actually executes these
-      # hooks; bash catches a few things dash accepts.
-      - name: Parse the install hooks
-        run: |
-          set -eu
-          fail=0
-          for f in scripts/* tools/*.sh; do
-            for sh in dash bash; do
-              if $sh -n "$f" 2>/tmp/err; then
-                echo "ok    $sh -n $f"
-              else
-                echo "FAIL  $sh -n $f"; cat /tmp/err; fail=1
-              fi
-            done
-          done
-          [ "$fail" -eq 0 ]
-
-      # -S error only: shellcheck at `warning` reports style opinions about scripts
-      # written for BusyBox on purpose, and a gate nobody can get to green is a gate
-      # everyone learns to ignore. At `error` it reports what is wrong in any shell,
-      # and this tree is clean there today.
-      - name: ShellCheck (errors only)
-        run: shellcheck -s sh -S error scripts/* tools/*.sh
-
-      # CRLF AND THE UTF-8 BOM IN THE HOOKS, caught at the source rather than only
-      # repaired during staging. Either one makes OpenWrt's sh refuse to run the
-      # script: a CR at the end of the shebang makes the interpreter path "/bin/sh\r",
-      # and a BOM before `#!` stops it being a shebang at all. tools/stage.sh strips
-      # both so a release is never broken by them, but a file that keeps arriving with
-      # CRLF is worth knowing about — the previous CI ran dos2unix and said nothing.
-      - name: The hooks are Unix text
-        run: |
-          set -eu
-          fail=0
-          for f in scripts/*; do
-            if grep -q $'\r' "$f"; then echo "CRLF  $f"; fail=1; fi
-            if head -c 3 "$f" | grep -q $'\xef\xbb\xbf'; then echo "BOM   $f"; fail=1; fi
-          done
-          [ "$fail" -eq 0 ] || {
-            echo "run: sed -i '1s/^\xef\xbb\xbf//; s/\r$//' scripts/*"
-            exit 1
-          }
-
-  package:
-    name: OpenWrt package
+  # No key anywhere in this job. `owfeed check` is build, sign, index and doctor on
+  # keys owfeed generates and throws away, so a pull request exercises the pipeline
+  # that publishes rather than a second one that drifts from it.
+  build:
+    name: Build the packages
+    needs: sources
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
-          # tools/stage.sh reads the version from the newest tag when none is given,
-          # and a shallow checkout has no tags.
+          # tools/stage.sh takes the version from the newest tag when none is given.
           fetch-depth: 0
 
-      # owfeed's own setup action. It downloads a release binary and VERIFIES IT
-      # AGAINST GITHUB'S BUILD ATTESTATION before putting it on PATH — the SHA256SUMS
-      # published beside a release would not be a check, because the same host serves
-      # both and whoever can replace one replaces the other.
-      #
-      # The ref and the `version:` input name the same release and must move together:
-      # the ref pins the action, the input pins the binary it installs.
-      - uses: owfeed/owfeed/setup@v0.4.5
+      - uses: owfeed/owfeed/setup@v0.5.0
         with:
-          version: v0.4.5
+          version: v0.5.0
 
-      # A package's identity is a hash over its payload and mkpkg records mtimes, so
-      # without a fixed epoch byte-identical content rebuilds into a package that
-      # claims to be new. The COMMIT's timestamp and not the job's: identity should
-      # depend on what went into the package and nothing else, so re-running this
-      # workflow over the same commit produces the same bytes.
-      #
-      # It applies to BOTH containers, where the old workflow set it for the ipk leg
-      # and unset it for the apk leg. That asymmetry meant every apk rebuild produced
-      # a different package for identical content — which invalidates cached copies
-      # and makes an integrity check report tampering that did not happen. owfeed
-      # signs after building rather than during, so a fixed epoch costs the apk leg
-      # nothing.
-      - name: Fix the build epoch
-        run: echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)" >> "$GITHUB_ENV"
+      # The commit's timestamp, not the job's: a package's identity is a hash over its
+      # payload and mkpkg records mtimes, so re-running a release over the same commit
+      # has to produce the same bytes. It applies to BOTH containers — the nfpm
+      # workflow set it for the ipk leg and unset it for the apk one, so identical
+      # content rebuilt into a package that claimed to be new.
+      - run: echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)" >> "$GITHUB_ENV"
 
-      - name: Stage the router filesystem
-        run: ./tools/stage.sh
+      - run: ./tools/stage.sh
+      - run: owfeed plan
+      - run: owfeed check
+      - run: owfeed build
+      - run: sh tools/check-package.sh
 
-      - name: Build both containers
-        run: owfeed build
-
-      # THROWAWAY KEYS, generated here and never leaving the job. Neither is a
-      # repository secret and neither must become one: this job runs on
-      # pull_request, so a real key in scope here would be a key any fork could aim
-      # work at. What is checked is that the package CAN be signed and indexed.
-      - name: Sign, index and check with throwaway keys
-        run: |
-          set -eu
-          owfeed keygen -force -o "$RUNNER_TEMP/ci-sign.pem"
-          owfeed keygen -force -usign -o "$RUNNER_TEMP/ci-index.key"
-          OWFEED_SIGN_KEY="$(cat "$RUNNER_TEMP/ci-sign.pem")"
-          OWFEED_INDEX_KEY="$(cat "$RUNNER_TEMP/ci-index.key")"
-          export OWFEED_SIGN_KEY OWFEED_INDEX_KEY
-
-          owfeed sign
-          owfeed index
-          # doctor is the checklist of everything that has burned a package feed
-          # before. The one that matters most here is conffiles: /etc/config/telemt
-          # shipped without being declared would be replaced by these defaults on
-          # every upgrade, wiping the admin's proxy configuration and reporting
-          # success. --require-origin additionally refuses a package that does not
-          # say which repository it came from.
-          owfeed doctor --require-origin
-
-      # WHAT IS ACTUALLY INSIDE THE PACKAGE, read out of the built .ipk rather than
-      # taken from what the build printed. The .ipk because it is a plain tar and
-      # needs no tools to open; both containers are packed from the same staged tree
-      # by the same build, so checking one proves the staging.
-      - name: The package contains what it should
-        run: |
-          set -eu
-          work="$RUNNER_TEMP/pkg"
-          mkdir -p "$work/control" "$work/data"
-          tar xzf dist/all/*.ipk -C "$work"
-          tar xzf "$work/control.tar.gz" -C "$work/control"
-          tar xzf "$work/data.tar.gz"    -C "$work/data"
-
-          echo "--- control ---"; cat "$work/control/control"
-          echo "--- payload ---"; ( cd "$work/data" && find . -type f | sort )
-
-          # The UCI defaults are shipped AND declared. Both halves matter: without the
-          # file a fresh install renders empty CBI tabs, and without the declaration
-          # the package manager overwrites the admin's configuration on upgrade.
-          test -f "$work/data/etc/config/telemt"
-          grep -qx '/etc/config/telemt' "$work/control/conffiles"
-
-          # The app itself.
-          test -f "$work/data/usr/lib/lua/luci/controller/telemt.lua"
-          test -f "$work/data/usr/lib/lua/luci/model/cbi/telemt.lua"
-          test -f "$work/data/usr/share/luci/menu.d/luci-app-telemt.json"
-          test -f "$work/data/usr/share/rpcd/acl.d/luci-app-telemt.json"
-
-          # The dependency list nfpm used to declare. luci-compat is the one that is
-          # easy to lose and hard to diagnose: without it the CBI page 500s on 23.05+.
-          grep -q '^Depends: libc, luci-base, luci-compat, qrencode, ca-bundle$' \
-            "$work/control/control"
-
-          # All three hooks reached the container, and are executable. opkg calls them
-          # postinst, prerm and postrm; owfeed maps post-install, pre-deinstall and
-          # post-deinstall onto those.
-          for h in postinst prerm postrm; do test -x "$work/control/$h"; done
-
-          # Where this package came from. It is carried into a feed's index and shown
-          # by `apk info` on the router, and in a feed of other people's work it is the
-          # only thing telling a user who published what they installed.
-          grep -q '^Source: https://github.com/Medvedolog/luci-app-telemt$' \
-            "$work/control/control"
-
-      # So a reviewer can install the package on a test router before it is tagged.
-      # A workflow artifact rather than anything with a public URL: the signature on
-      # it is the throwaway above and means nothing to anyone else.
+      # dist/root and dist/scripts are staging, not output.
       - uses: actions/upload-artifact@v7
         with:
-          name: luci-app-telemt-unreleased
+          name: owfeed-packages
           path: |
-            dist/noarch/*.apk
-            dist/all/*.ipk
-          retention-days: 7
+            dist/noarch
+            dist/all
+          if-no-files-found: error
+
+  # Everything above proves the package was BUILT correctly. None of it proves the
+  # thing a user cares about: that installing it produces a router whose page renders.
+  # owlab boots a real OpenWrt, installs the package and logs into LuCI first — an
+  # unauthenticated request under /cgi-bin/luci/admin is a redirect to the login form,
+  # which is why a hand-written curl reports 403 on a healthy page.
+  #
+  # No key exists anywhere in this job: it asserts that a package works, never that
+  # anyone should trust it.
+  verify:
+    name: The package works on a real router
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: owfeed-packages
+          path: dist/
+
+      # ONE RELEASE PER STEP: 25.12 is apk and 24.10 is opkg, and neither will install
+      # the other's file.
+      - name: Install this build on 25.12 and render its page
+        uses: owfeed/owlab/action@v0.5.3
+        with:
+          version: v0.5.3
+          releases: "25.12.5"
+          install: dist/noarch/luci-app-telemt-*.apk
+          # `uci telemt.general` is how you check that the shipped UCI defaults are
+          # actually readable: without them the CBI tabs render empty, which is the
+          # reason telemt.config is in the package at all.
+          assert: |
+            package luci-app-telemt
+            file /usr/lib/lua/luci/model/cbi/telemt.lua
+            file /usr/share/rpcd/acl.d/luci-app-telemt.json
+            uci telemt.general
+            http 200 /cgi-bin/luci/admin/services/telemt
+
+      - name: Install this build on 24.10 and render its page
+        uses: owfeed/owlab/action@v0.5.3
+        with:
+          version: v0.5.3
+          releases: "24.10.8"
+          install: dist/all/luci-app-telemt_*.ipk
+          assert: |
+            package luci-app-telemt
+            file /usr/lib/lua/luci/model/cbi/telemt.lua
+            file /usr/share/rpcd/acl.d/luci-app-telemt.json
+            uci telemt.general
+            http 200 /cgi-bin/luci/admin/services/telemt
+
+  # The only job that holds a key, and `needs: [build, verify]` is what keeps a tag
+  # from publishing a package no router has installed.
+  release:
+    name: Sign and publish
+    needs: [build, verify]
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    uses: owfeed/owfeed/.github/workflows/package.yml@v0.5.0
+    secrets:
+      sign-key: ${{ secrets.TELEMT_SIGN_KEY }}
+      usign-key: ${{ secrets.TELEMT_USIGN_KEY }}
+    with:
+      owfeed-version: v0.5.0

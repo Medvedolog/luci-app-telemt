@@ -57,32 +57,15 @@ releases:
   - line: "24.10"
     format: ipk
 
-# TWO KEYS, AND ONLY THE FIRST SIGNS ANYTHING A USER EVER SEES.
+# NO `signing:` BLOCK. What that configures is a FEED'S INDEX KEY — the thing a router
+# installs into /etc/apk/keys, which from then on validates an index claiming ANY
+# package name. This repository never builds an index and needs no such key.
 #
-#   key       an EC prime256v1 key. `owfeed sign` puts this signature INSIDE the
-#             .apk and it stays there: apk signature blocks are additive, so a feed
-#             that re-signs the package adds its own beside this one rather than
-#             replacing it. That is what lets somebody take a published package,
-#             fetch this public key from somewhere that is not the feed, and confirm
-#             who built it — a year later, trusting no feed at all.
-#
-#   usign-key AN INDEX KEY, AND THIS REPOSITORY PUBLISHES NO INDEX. It is declared
-#             only because `owfeed index` refuses to run without one, and CI runs
-#             index followed by `owfeed doctor` as a self-check — doctor reads a
-#             built index and reports what has burned package feeds before, which
-#             for this package includes the one finding that matters most: a config
-#             file shipped without being declared in conffiles:.
-#
-#             CI generates a THROWAWAY key for that, uses it inside one job and
-#             never publishes the index it signs. There is no repository secret
-#             behind this variable and there must never be one.
-#
-# The third key — the usign RELEASE key that signs the manifest — is not named here
-# at all: `owfeed release` takes it on the command line, in the one job that can
-# reach a secret. RELEASING.md has all three.
-signing:
-  key: env:OWFEED_SIGN_KEY
-  usign-key: env:OWFEED_INDEX_KEY
+# It used to declare one anyway, pointing at a CI variable holding nothing, purely
+# because `owfeed index` refused to start without it. `owfeed check` generates both
+# keys itself, uses them for the length of the run and discards them, so there is
+# nothing left to declare. The two real keys are passed on the command line by
+# owfeed's package.yml, in the one job that can reach a secret.
 
 # Required by the schema and unused here: `publish` is the stage that hands a built
 # feed to a host, and this repository stops after `build` and `release`.
