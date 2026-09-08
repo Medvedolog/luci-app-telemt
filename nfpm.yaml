@@ -21,10 +21,8 @@ depends:
 contents:
   - src: ./usr
     dst: /usr
-  # UCI defaults config — ensures CBI tabs render on fresh install
-  - src: ./telemt.config
-    dst: /etc/config/telemt
-    type: config
+  # /etc/config/telemt is intentionally NOT packaged by LuCI.
+  # The telemt core package is the sole owner of the authoritative UCI config.
 scripts:
   postinstall: ./scripts/postinst
   preremove: ./scripts/prerm
