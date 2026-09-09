@@ -1,0 +1,55 @@
+name: Validate LuCI Telemt 3.5 WEB branch
+
+on:
+  push:
+    branches:
+      - telemt-3.5.6-web
+  workflow_dispatch:
+
+jobs:
+  validate:
+    name: LuCI syntax and package ownership
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout working branch
+        uses: actions/checkout@v4
+
+      - name: Install validation tools
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y lua5.1 jq
+
+      - name: Validate Lua 5.1 syntax
+        run: |
+          set -euxo pipefail
+          luac5.1 -p usr/lib/lua/luci/controller/telemt.lua
+          luac5.1 -p usr/lib/lua/luci/model/cbi/telemt.lua
+          luac5.1 -p usr/lib/lua/luci/model/cbi/telemt_web.lua
+
+      - name: Validate LuCI JSON
+        run: |
+          set -euxo pipefail
+          jq -e . usr/share/luci/menu.d/luci-app-telemt.json >/dev/null
+          jq -e . usr/share/rpcd/acl.d/luci-app-telemt.json >/dev/null
+          jq -e 'has("admin/services/telemt/web")' usr/share/luci/menu.d/luci-app-telemt.json >/dev/null
+
+      - name: Assert shared UCI ownership and WEB payload
+        run: |
+          set -euxo pipefail
+
+          test -s usr/lib/lua/luci/model/cbi/telemt_web.lua
+          grep -q 'cbi("telemt_web")' usr/lib/lua/luci/controller/telemt.lua
+          grep -q '"path": "telemt_web"' usr/share/luci/menu.d/luci-app-telemt.json
+
+          # Core telemt is the sole package owner of /etc/config/telemt.
+          if grep -qE 'dst:[[:space:]]*/etc/config/telemt' nfpm.yaml; then
+            echo 'ERROR: luci-app-telemt must not package /etc/config/telemt' >&2
+            exit 1
+          fi
+
+          # nFPM payload is the whole usr tree, therefore telemt_web.lua is included
+          # without adding a second package-content declaration.
+          grep -qE 'src:[[:space:]]*\./usr' nfpm.yaml
+          grep -qE 'dst:[[:space:]]*/usr' nfpm.yaml
