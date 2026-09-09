@@ -106,27 +106,27 @@ carrier = web:option(ListValue, "carrier", _("Carrier"))
 carrier:value("https", "HTTPS")
 carrier.default = "https"
 carrier.rmempty = false
-carrier.description = _("The first WEB UI stage intentionally exposes only the conservative HTTPS carrier. Lanes/WebSocket modes will be added after hardware testing."))
+carrier.description = _("The first WEB UI stage intentionally exposes only the conservative HTTPS carrier. Lanes/WebSocket modes will be added after hardware testing.")
 
 frontend = web:option(ListValue, "tls_terminator", _("TLS frontend"))
 frontend:value("external", _("External / already configured"))
 frontend:value("haproxy", _("HAProxy"))
 frontend.default = "external"
 frontend.rmempty = false
-frontend.description = _("Telemt WEB listens for private plain HTTP. Public TLS must terminate before it reaches Telemt."))
+frontend.description = _("Telemt WEB listens for private plain HTTP. Public TLS must terminate before it reaches Telemt.")
 
 hm = web:option(Flag, "haproxy_managed", _("Manage HAProxy configuration"))
 hm:depends("tls_terminator", "haproxy")
 hm.default = hm.disabled
 hm.rmempty = false
-hm.description = _("Opt-in takeover of /etc/haproxy.cfg. The core helper saves the original once and validates generated configuration with haproxy -c before replacing it."))
+hm.description = _("Opt-in takeover of /etc/haproxy.cfg. The core helper saves the original once and validates generated configuration with haproxy -c before replacing it.")
 
 hb = web:option(Value, "haproxy_bind", _("HAProxy public bind"))
 hb:depends({ tls_terminator = "haproxy", haproxy_managed = "1" })
 hb.default = ":443"
 hb.placeholder = ":443"
 hb.rmempty = false
-hb.description = _("TCP/443 only, for example :443, 0.0.0.0:443 or [::]:443. Existing uhttpd/NGINX listeners must be resolved first."))
+hb.description = _("TCP/443 only, for example :443, 0.0.0.0:443 or [::]:443. Existing uhttpd/NGINX listeners must be resolved first.")
 function hb.validate(self, value, section)
     value = trim(value)
     if value == ":443" or value == "0.0.0.0:443" or value:match("^%d+%.%d+%.%d+%.%d+:443$") or value:match("^%[[0-9A-Fa-f:]+%]:443$") then
@@ -139,7 +139,7 @@ hc = web:option(Value, "haproxy_cert", _("Certificate / fullchain PEM"))
 hc:depends({ tls_terminator = "haproxy", haproxy_managed = "1" })
 hc.placeholder = "/etc/acme/example/fullchain.cer"
 hc.rmempty = true
-hc.description = _("If the PEM already contains the private key, leave the key field empty."))
+hc.description = _("If the PEM already contains the private key, leave the key field empty.")
 
 hk = web:option(Value, "haproxy_key", _("Private key"))
 hk:depends({ tls_terminator = "haproxy", haproxy_managed = "1" })
@@ -150,7 +150,7 @@ hfw = web:option(Flag, "haproxy_auto_fw", _("Open WAN TCP/443 after successful a
 hfw:depends({ tls_terminator = "haproxy", haproxy_managed = "1" })
 hfw.default = hfw.enabled
 hfw.rmempty = false
-hfw.description = _("The private Telemt backend port is never opened by this option."))
+hfw.description = _("The private Telemt backend port is never opened by this option.")
 
 -- -----------------------------------------------------------------------------
 -- Private WEB listener
@@ -167,14 +167,14 @@ lip = listener:option(Value, "ip", _("Listen address"))
 lip.default = "127.0.0.1"
 lip.placeholder = "127.0.0.1"
 lip.rmempty = false
-lip.description = _("Managed HAProxy requires 127.0.0.1. External frontends may use another private address when required."))
+lip.description = _("Managed HAProxy requires 127.0.0.1. External frontends may use another private address when required.")
 
 lp = listener:option(Value, "port", _("Listen port"))
 lp.datatype = "port"
 lp.default = "27453"
 lp.placeholder = "27453"
 lp.rmempty = false
-lp.description = _("Default 27453 avoids common local proxy ports such as 18080."))
+lp.description = _("Default 27453 avoids common local proxy ports such as 18080.")
 
 xff = listener:option(ListValue, "client_ip_source", _("Client IP source"))
 xff:value("x_forwarded_for", "X-Forwarded-For")
@@ -185,7 +185,7 @@ trusted = listener:option(DynamicList, "trusted_proxy_cidr", _("Trusted frontend
 trusted.default = "127.0.0.1/32"
 trusted.placeholder = "127.0.0.1/32"
 trusted.rmempty = false
-trusted.description = _("Only immediate TLS frontend peers belong here. /0 is forbidden by the core generator."))
+trusted.description = _("Only immediate TLS frontend peers belong here. /0 is forbidden by the core generator.")
 
 -- -----------------------------------------------------------------------------
 -- VHosts
@@ -231,7 +231,7 @@ end
 vhd = vh:option(Value, "decoy_upstream", _("HTTP decoy"))
 vhd.rmempty = false
 vhd.placeholder = "http://127.0.0.1:27454"
-vhd.description = _("Current LAB supports http_upstream only: http://IP[:port], without path/query/credentials."))
+vhd.description = _("Current LAB supports http_upstream only: http://IP[:port], without path/query/credentials.")
 function vhd.validate(self, value, section)
     value = trim(value)
     if valid_decoy(value) then return value end
@@ -281,7 +281,7 @@ else
         pru:value(item.name, label)
     end
 end
-pru.description = _("The secret is read from config user; it is never copied into the WEB profile."))
+pru.description = _("The secret is read from config user; it is never copied into the WEB profile.")
 
 prm = pr:option(ListValue, "secret_mode", _("WEB secret mode"))
 prm:value("dd", "DD")
@@ -310,7 +310,7 @@ pmss.placeholder = _("core default")
 -- -----------------------------------------------------------------------------
 frontst = m:section(SimpleSection)
 frontst.title = _("HAProxy helper state")
-frontst.description = _("Read-only. Managed actions will be exposed after the page configuration path is validated on LuCI 21.02-25.x."))
+frontst.description = _("Read-only. Managed actions will be exposed after the page configuration path is validated on LuCI 21.02-25.x.")
 
 fsv = frontst:option(DummyValue, "_frontend_status")
 fsv.rawhtml = true
