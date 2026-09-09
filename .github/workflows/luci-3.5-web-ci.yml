@@ -39,9 +39,28 @@ jobs:
         run: |
           set -euxo pipefail
 
-          test -s usr/lib/lua/luci/model/cbi/telemt_web.lua
-          grep -q 'cbi("telemt_web")' usr/lib/lua/luci/controller/telemt.lua
+          WEB_MODEL=usr/lib/lua/luci/model/cbi/telemt_web.lua
+          CONTROLLER=usr/lib/lua/luci/controller/telemt.lua
+
+          test -s "$WEB_MODEL"
+          grep -q 'cbi("telemt_web")' "$CONTROLLER"
           grep -q '"path": "telemt_web"' usr/share/luci/menu.d/luci-app-telemt.json
+
+          # Fixed helper endpoints only; LuCI must never execute an arbitrary command.
+          grep -q 'call("web_frontend_action")' "$CONTROLLER"
+          grep -q 'act ~= "check" and act ~= "apply" and act ~= "restore"' "$CONTROLLER"
+          grep -q 'call("web_qr")' "$CONTROLLER"
+          grep -q 'tg://webproxy?server=' "$CONTROLLER"
+          grep -q 'tg://webproxy?server=' "$WEB_MODEL"
+          grep -q 'X-Requested-With' "$WEB_MODEL"
+          grep -q 'HTTP_X_REQUESTED_WITH' "$CONTROLLER"
+
+          # WEB profiles reference shared config user; no WEB-specific secret option.
+          grep -q 'pr:option(ListValue, "user"' "$WEB_MODEL"
+          if grep -qE 'option\([^,]+,[[:space:]]*"(web_)?secret"' "$WEB_MODEL"; then
+            echo 'ERROR: WEB page must not store a duplicate secret' >&2
+            exit 1
+          fi
 
           # Core telemt is the sole package owner of /etc/config/telemt.
           if grep -qE 'dst:[[:space:]]*/etc/config/telemt' nfpm.yaml; then
