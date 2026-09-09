@@ -167,9 +167,12 @@ enabled.description = _("WEB remains disabled on upgrade until explicitly enable
 
 carrier = web:option(ListValue, "carrier", _("Carrier"))
 carrier:value("https", "HTTPS")
+carrier:value("https-lanes", "HTTPS lanes")
+carrier:value("websocket", "WebSocket")
+carrier:value("websocket-lanes", "WebSocket lanes")
 carrier.default = "https"
 carrier.rmempty = false
-carrier.description = _("The first WEB UI stage intentionally exposes only the conservative HTTPS carrier. Lanes/WebSocket modes will be added after hardware testing.")
+carrier.description = _("Select one fixed WEB carrier. Auto-negotiation is intentionally not enabled in LAB-5A.")
 
 frontend = web:option(ListValue, "tls_terminator", _("TLS frontend"))
 frontend:value("external", _("External / already configured"))
