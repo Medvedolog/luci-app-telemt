@@ -13,7 +13,7 @@ function index()
     entry({"admin", "services", "telemt", "web"}, cbi("telemt_web"), _("WEB Proxy"), 60).leaf = true
 
     -- AJAX-only frontend helper endpoint. It never accepts arbitrary commands:
-    -- only the three fixed operations supported by the core helper are allowed.
+    -- only the three fixed operations supported by the core helpers are allowed.
     entry({"admin", "services", "telemt", "web_frontend_action"}, call("web_frontend_action")).leaf = true
 
     -- Read-only QR endpoint. The browser supplies only a UCI profile section id;
@@ -24,6 +24,7 @@ end
 function web_frontend_action()
     local http = require "luci.http"
     local sys = require "luci.sys"
+    local uci = require("luci.model.uci").cursor()
 
     if http.getenv("REQUEST_METHOD") ~= "POST" then
         http.status(405, "Method Not Allowed")
@@ -50,7 +51,21 @@ function web_frontend_action()
         return
     end
 
-    local helper = "/usr/libexec/telemt-web-frontend"
+    -- Frontend selection is read from committed UCI only. The request cannot pick
+    -- an executable path, and unsaved CBI values are intentionally ignored.
+    local frontend = tostring(uci:get("telemt", "web", "tls_terminator") or "external")
+    local helpers = {
+        haproxy = "/usr/libexec/telemt-web-frontend",
+        nginx = "/usr/libexec/telemt-web-nginx"
+    }
+    local helper = helpers[frontend]
+    if not helper then
+        http.status(409, "No Managed Frontend")
+        http.prepare_content("text/plain")
+        http.write("Saved TLS frontend is external; no managed action is available\n")
+        return
+    end
+
     if sys.call("test -x " .. helper .. " >/dev/null 2>&1") ~= 0 then
         http.status(503, "Service Unavailable")
         http.prepare_content("text/plain")
@@ -58,12 +73,13 @@ function web_frontend_action()
         return
     end
 
-    -- act is whitelisted above; no user-controlled shell fragment reaches sh.
+    -- act and helper are both selected from fixed whitelists above; no
+    -- user-controlled shell fragment reaches sh.
     local raw = sys.exec(helper .. " " .. act .. " 2>&1; rc=$?; printf '\n__TELEMT_RC__%s\n' \"$rc\"") or ""
     local rc = tonumber(raw:match("\n__TELEMT_RC__(%d+)%s*$")) or 1
     raw = raw:gsub("\n__TELEMT_RC__%d+%s*$", "")
 
-    sys.call(string.format("logger -t telemt 'WebUI: WEB frontend %s rc=%d'", act, rc))
+    sys.call(string.format("logger -t telemt 'WebUI: WEB %s frontend %s rc=%d'", frontend, act, rc))
     if rc ~= 0 then http.status(409, "Frontend Action Failed") end
     http.prepare_content("text/plain")
     http.write(raw ~= "" and (raw .. "\n") or (rc == 0 and "OK\n" or "FAILED\n"))
