@@ -57,16 +57,28 @@ jobs:
           grep -q 'X-Requested-With' "$WEB_MODEL"
           grep -q 'HTTP_X_REQUESTED_WITH' "$CONTROLLER"
 
-          # LAB-5A exposes exactly the four upstream fixed carrier tokens.
+          # LAB-5A/5B: all four exact carrier values remain available, with
+          # fixed as default and explicit auto-negotiation controls.
+          grep -q 'carrier_policy = web:option(ListValue, "carrier_policy"' "$WEB_MODEL"
+          grep -q 'carrier_policy:value("fixed"' "$WEB_MODEL"
+          grep -q 'carrier_policy:value("auto"' "$WEB_MODEL"
+          grep -q 'carrier_policy.default = "fixed"' "$WEB_MODEL"
           grep -q 'carrier:value("https", "HTTPS")' "$WEB_MODEL"
           grep -q 'carrier:value("https-lanes", "HTTPS lanes")' "$WEB_MODEL"
           grep -q 'carrier:value("websocket", "WebSocket")' "$WEB_MODEL"
           grep -q 'carrier:value("websocket-lanes", "WebSocket lanes")' "$WEB_MODEL"
           grep -q 'carrier.default = "https"' "$WEB_MODEL"
-          if grep -qE 'option\([^,]+,[[:space:]]*"(carrier_policy|carrier_candidate|carrier_learning|carrier_negotiation_aggressiveness)"' "$WEB_MODEL"; then
-            echo 'ERROR: LAB-5A must not expose WEB auto-negotiation controls' >&2
-            exit 1
-          fi
+          grep -q 'carrier_candidates = web:option(DynamicList, "carrier_candidate"' "$WEB_MODEL"
+          grep -q 'carrier_candidates:depends("carrier_policy", "auto")' "$WEB_MODEL"
+          grep -q 'carrier_candidates.default = { "websocket-lanes", "websocket", "https-lanes" }' "$WEB_MODEL"
+          grep -q 'Duplicate WEB carrier candidate' "$WEB_MODEL"
+          grep -q 'carrier_learning = web:option(Flag, "carrier_learning"' "$WEB_MODEL"
+          grep -q 'carrier_learning.default = carrier_learning.enabled' "$WEB_MODEL"
+          grep -q 'carrier_aggr = web:option(ListValue, "carrier_negotiation_aggressiveness"' "$WEB_MODEL"
+          grep -q 'carrier_aggr:value("conservative"' "$WEB_MODEL"
+          grep -q 'carrier_aggr:value("balanced"' "$WEB_MODEL"
+          grep -q 'carrier_aggr:value("aggressive"' "$WEB_MODEL"
+          grep -q 'carrier_aggr.default = "conservative"' "$WEB_MODEL"
 
           # The WEB page exposes the three mutually exclusive frontend modes.
           grep -q 'frontend:value("external"' "$WEB_MODEL"
