@@ -56,6 +56,10 @@ local function valid_decoy(v)
     return false
 end
 
+local function valid_carrier(v)
+    return v == "https" or v == "https-lanes" or v == "websocket" or v == "websocket-lanes"
+end
+
 local function helper_output(path, arg)
     if sys.call("test -x " .. path .. " >/dev/null 2>&1") ~= 0 then
         return "helper missing: " .. path
@@ -165,14 +169,62 @@ enabled.rmempty = false
 enabled.default = enabled.disabled
 enabled.description = _("WEB remains disabled on upgrade until explicitly enabled.")
 
-carrier = web:option(ListValue, "carrier", _("Carrier"))
+carrier_policy = web:option(ListValue, "carrier_policy", _("Carrier policy"))
+carrier_policy:value("fixed", _("Fixed"))
+carrier_policy:value("auto", _("Auto negotiation"))
+carrier_policy.default = "fixed"
+carrier_policy.rmempty = false
+carrier_policy.description = _("Fixed uses one carrier. Auto tries the ordered candidate list and keeps the Carrier field below as the final fallback.")
+
+carrier = web:option(ListValue, "carrier", _("Carrier / fallback"))
 carrier:value("https", "HTTPS")
 carrier:value("https-lanes", "HTTPS lanes")
 carrier:value("websocket", "WebSocket")
 carrier:value("websocket-lanes", "WebSocket lanes")
 carrier.default = "https"
 carrier.rmempty = false
-carrier.description = _("Select one fixed WEB carrier. Auto-negotiation is intentionally not enabled in LAB-5A.")
+carrier.description = _("In Fixed mode this is the only carrier. In Auto mode this is the final fallback and is not required in the candidate list.")
+
+carrier_candidates = web:option(DynamicList, "carrier_candidate", _("Auto carrier candidates"))
+carrier_candidates:depends("carrier_policy", "auto")
+carrier_candidates:value("websocket-lanes", "WebSocket lanes")
+carrier_candidates:value("websocket", "WebSocket")
+carrier_candidates:value("https-lanes", "HTTPS lanes")
+carrier_candidates:value("https", "HTTPS")
+carrier_candidates.default = { "websocket-lanes", "websocket", "https-lanes" }
+carrier_candidates.rmempty = false
+carrier_candidates.description = _("Ordered negotiation list. Use only the four exact Telemt 3.5.6 carrier values; duplicates are rejected by the core generator.")
+function carrier_candidates.validate(self, value, section)
+    if type(value) == "table" then
+        local seen = {}
+        if #value == 0 then return nil, _("Auto mode requires at least one carrier candidate") end
+        for _, item in ipairs(value) do
+            item = trim(item)
+            if not valid_carrier(item) then return nil, _("Invalid WEB carrier candidate") end
+            if seen[item] then return nil, _("Duplicate WEB carrier candidate") end
+            seen[item] = true
+        end
+        return value
+    end
+    value = trim(value)
+    if valid_carrier(value) then return value end
+    return nil, _("Invalid WEB carrier candidate")
+end
+
+carrier_learning = web:option(Flag, "carrier_learning", _("Carrier learning"))
+carrier_learning:depends("carrier_policy", "auto")
+carrier_learning.default = carrier_learning.enabled
+carrier_learning.rmempty = false
+carrier_learning.description = _("Enable Telemt's bounded process-local carrier learning for Auto mode.")
+
+carrier_aggr = web:option(ListValue, "carrier_negotiation_aggressiveness", _("Negotiation aggressiveness"))
+carrier_aggr:depends("carrier_policy", "auto")
+carrier_aggr:value("conservative", _("Conservative"))
+carrier_aggr:value("balanced", _("Balanced"))
+carrier_aggr:value("aggressive", _("Aggressive"))
+carrier_aggr.default = "conservative"
+carrier_aggr.rmempty = false
+carrier_aggr.description = _("Conservative is the default. Balanced and Aggressive are manual advanced choices.")
 
 frontend = web:option(ListValue, "tls_terminator", _("TLS frontend"))
 frontend:value("external", _("External / already configured"))
