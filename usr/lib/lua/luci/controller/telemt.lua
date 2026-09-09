@@ -5,7 +5,10 @@
 module("luci.controller.telemt", package.seeall)
 
 function index()
-    -- Mounts the CBI model at 'Admin -> Services -> Telemt MTProxy' with sorting weight 50.
+    -- Main legacy CBI page.
     entry({"admin", "services", "telemt"}, cbi("telemt"), _("Telemt MTProxy"), 50).dependent = true
-end
 
+    -- Telemt 3.5.6+ WEB Proxy configuration. Kept in a separate CBI model so the
+    -- large legacy telemt.lua does not become the second source of WEB logic.
+    entry({"admin", "services", "telemt", "web"}, cbi("telemt_web"), _("WEB Proxy"), 60).leaf = true
+end
