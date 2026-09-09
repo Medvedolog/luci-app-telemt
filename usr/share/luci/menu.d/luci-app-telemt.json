@@ -7,5 +7,14 @@
             "acl": [ "luci-app-telemt" ],
             "uci": { "telemt": true }
         }
+    },
+    "admin/services/telemt/web": {
+        "title": "WEB Proxy",
+        "order": 60,
+        "action": { "type": "cbi", "path": "telemt_web" },
+        "depends": {
+            "acl": [ "luci-app-telemt" ],
+            "uci": { "telemt": true }
+        }
     }
 }
