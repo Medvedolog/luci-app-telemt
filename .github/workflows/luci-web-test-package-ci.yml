@@ -1,4 +1,4 @@
-name: Build LuCI WEB test package
+name: Build LuCI WEB test packages
 
 on:
   push:
@@ -8,14 +8,14 @@ on:
 
 jobs:
   package:
-    name: Build test IPK
+    name: Build test IPK and APKv3
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout working branch
         uses: actions/checkout@v4
 
-      - name: Install packaging tools
+      - name: Install IPK packaging tools
         shell: bash
         run: |
           set -euxo pipefail
@@ -26,16 +26,22 @@ jobs:
           curl -fsSL "https://github.com/goreleaser/nfpm/releases/download/${NFPM_TAG}/nfpm_${NFPM_VER}_Linux_x86_64.tar.gz" | tar -xz
           sudo install -m 0755 nfpm /usr/local/bin/nfpm
 
-      - name: Build and inspect IPK
+      - name: Setup verified owfeed
+        uses: owfeed/owfeed/setup@v0.5.1
+        with:
+          version: v0.5.1
+
+      - name: Build and inspect OpenWrt 24.10 IPK
         shell: bash
         run: |
           set -euxo pipefail
-          nfpm package --config nfpm.yaml --packager ipk --target luci-app-telemt-web-test.ipk
-          test -s luci-app-telemt-web-test.ipk
+          mkdir -p test-packages/ipk
+          nfpm package --config nfpm.yaml --packager ipk --target test-packages/ipk/luci-app-telemt-web-test_all.ipk
+          test -s test-packages/ipk/luci-app-telemt-web-test_all.ipk
 
           rm -rf .ci-ipk
           mkdir -p .ci-ipk
-          tar -xzf luci-app-telemt-web-test.ipk -C .ci-ipk
+          tar -xzf test-packages/ipk/luci-app-telemt-web-test_all.ipk -C .ci-ipk
           test -f .ci-ipk/control.tar.gz
           test -f .ci-ipk/data.tar.gz
           tar -tzf .ci-ipk/data.tar.gz > .ci-ipk/files.txt
@@ -47,16 +53,82 @@ jobs:
           grep -Eq '(^|\./)usr/lib/lua/luci/model/cbi/telemt_legacy.lua$' .ci-ipk/files.txt
           grep -Eq '(^|\./)usr/lib/lua/luci/model/cbi/telemt_web.lua$' .ci-ipk/files.txt
           if grep -Eq '(^|\./)etc/config/telemt$' .ci-ipk/files.txt; then
-            echo 'ERROR: LuCI test package must not own /etc/config/telemt' >&2
+            echo 'ERROR: LuCI IPK must not own /etc/config/telemt' >&2
             exit 1
           fi
 
-      - name: Upload test package
+      - name: Stage LuCI payload for OpenWrt APKv3
+        shell: bash
+        run: |
+          set -euxo pipefail
+          rm -rf .ci-apk dist
+          mkdir -p .ci-apk/root
+          cp -a usr .ci-apk/root/usr
+
+          cat > owfeed.yml <<'EOF'
+          version: 1
+          feed:
+            name: luci-app-telemt-ci
+            url: https://example.invalid/luci-app-telemt-ci
+            title: LuCI Telemt CI
+            maintainer: "Medvedolog <noreply@example.invalid>"
+          publish:
+            - target: github-pages
+          build:
+            sdk:
+              release: "25.12.2"
+          releases:
+            - line: "25.12"
+              format: apk
+              default: true
+              arches: [aarch64_generic, aarch64_cortex-a53, x86_64]
+          packages:
+            - name: luci-app-telemt
+              build: mkpkg
+              arch: noarch
+              version: 3.4.0-r1
+              files: ./.ci-apk/root
+              description: "LuCI WebUI for Telemt 3.5.6 WEB branch test package"
+              url: https://github.com/Medvedolog/luci-app-telemt
+              depends: [libc, luci-base, luci-compat, qrencode, ca-bundle]
+              scripts:
+                post-install: ./scripts/postinst
+                pre-deinstall: ./scripts/prerm
+                post-deinstall: ./scripts/postrm
+          EOF
+
+      - name: Build and verify OpenWrt 25.12 APKv3 with owfeed
+        shell: bash
+        run: |
+          set -euxo pipefail
+          owfeed lock --update
+          owfeed build --release 25.12 -o dist
+
+          test "$(find dist -type f -name '*.apk' | wc -l)" -eq 1
+          apk="$(find dist/noarch -maxdepth 1 -type f -name 'luci-app-telemt-*.apk' | head -n1)"
+          test -n "$apk"
+          test -s "$apk"
+          magic="$(od -An -tx1 -N3 "$apk" | tr -d ' \n')"
+          test "$magic" = 414442
+
+          mkdir -p test-packages/apk/noarch
+          cp "$apk" test-packages/apk/noarch/
+          cp owfeed.lock test-packages/
+
+      - name: Verify test package matrix
+        shell: bash
+        run: |
+          set -euxo pipefail
+          test "$(find test-packages/ipk -maxdepth 1 -type f -name '*.ipk' | wc -l)" -eq 1
+          test "$(find test-packages/apk/noarch -maxdepth 1 -type f -name '*.apk' | wc -l)" -eq 1
+          find test-packages -maxdepth 3 -type f -print | sort
+
+      - name: Upload complete LuCI test package set
         uses: actions/upload-artifact@v4
         with:
-          name: luci-app-telemt-web-test-ipk
+          name: luci-app-telemt-web-test-packages
           path: |
-            luci-app-telemt-web-test.ipk
+            test-packages/
             .ci-ipk/control.txt
             .ci-ipk/files.txt
           if-no-files-found: error
