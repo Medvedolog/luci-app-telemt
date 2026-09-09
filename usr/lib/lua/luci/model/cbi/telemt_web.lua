@@ -81,7 +81,7 @@ m = Map("telemt", _("Telemt WEB Proxy"),
 -- -----------------------------------------------------------------------------
 status = m:section(SimpleSection)
 status.title = _("WEB status")
-status.description = _("Read-only state from the core helper. Save & Apply configuration changes before relying on this status."))
+status.description = _("Read-only state from the core helper. Save & Apply configuration changes before relying on this status.")
 
 st = status:option(DummyValue, "_status")
 st.rawhtml = true
