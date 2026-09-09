@@ -1,0 +1,63 @@
+name: Build LuCI WEB test package
+
+on:
+  push:
+    branches:
+      - telemt-3.5.6-web
+  workflow_dispatch:
+
+jobs:
+  package:
+    name: Build test IPK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout working branch
+        uses: actions/checkout@v4
+
+      - name: Install packaging tools
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y jq curl tar gzip
+          NFPM_TAG="$(curl -fsSL https://api.github.com/repos/goreleaser/nfpm/releases/latest | jq -r .tag_name)"
+          NFPM_VER="${NFPM_TAG#v}"
+          curl -fsSL "https://github.com/goreleaser/nfpm/releases/download/${NFPM_TAG}/nfpm_${NFPM_VER}_Linux_x86_64.tar.gz" | tar -xz
+          sudo install -m 0755 nfpm /usr/local/bin/nfpm
+
+      - name: Build and inspect IPK
+        shell: bash
+        run: |
+          set -euxo pipefail
+          nfpm package --config nfpm.yaml --packager ipk --target luci-app-telemt-web-test.ipk
+          test -s luci-app-telemt-web-test.ipk
+
+          rm -rf .ci-ipk
+          mkdir -p .ci-ipk
+          tar -xzf luci-app-telemt-web-test.ipk -C .ci-ipk
+          test -f .ci-ipk/control.tar.gz
+          test -f .ci-ipk/data.tar.gz
+          tar -tzf .ci-ipk/data.tar.gz > .ci-ipk/files.txt
+          tar -xOzf .ci-ipk/control.tar.gz ./control > .ci-ipk/control.txt
+
+          grep -q '^Package: luci-app-telemt$' .ci-ipk/control.txt
+          grep -q '^Architecture: all$' .ci-ipk/control.txt
+          grep -Eq '(^|\./)usr/lib/lua/luci/model/cbi/telemt.lua$' .ci-ipk/files.txt
+          grep -Eq '(^|\./)usr/lib/lua/luci/model/cbi/telemt_legacy.lua$' .ci-ipk/files.txt
+          grep -Eq '(^|\./)usr/lib/lua/luci/model/cbi/telemt_web.lua$' .ci-ipk/files.txt
+          if grep -Eq '(^|\./)etc/config/telemt$' .ci-ipk/files.txt; then
+            echo 'ERROR: LuCI test package must not own /etc/config/telemt' >&2
+            exit 1
+          fi
+
+      - name: Upload test package
+        uses: actions/upload-artifact@v4
+        with:
+          name: luci-app-telemt-web-test-ipk
+          path: |
+            luci-app-telemt-web-test.ipk
+            .ci-ipk/control.txt
+            .ci-ipk/files.txt
+          if-no-files-found: error
+          retention-days: 14
