@@ -100,7 +100,7 @@ web.anonymous = true
 enabled = web:option(Flag, "enabled", _("Enable WEB Proxy"))
 enabled.rmempty = false
 enabled.default = enabled.disabled
-enabled.description = _("WEB remains disabled on upgrade until explicitly enabled." )
+enabled.description = _("WEB remains disabled on upgrade until explicitly enabled.")
 
 carrier = web:option(ListValue, "carrier", _("Carrier"))
 carrier:value("https", "HTTPS")
