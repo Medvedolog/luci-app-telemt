@@ -57,6 +57,17 @@ jobs:
           grep -q 'X-Requested-With' "$WEB_MODEL"
           grep -q 'HTTP_X_REQUESTED_WITH' "$CONTROLLER"
 
+          # LAB-5A exposes exactly the four upstream fixed carrier tokens.
+          grep -q 'carrier:value("https", "HTTPS")' "$WEB_MODEL"
+          grep -q 'carrier:value("https-lanes", "HTTPS lanes")' "$WEB_MODEL"
+          grep -q 'carrier:value("websocket", "WebSocket")' "$WEB_MODEL"
+          grep -q 'carrier:value("websocket-lanes", "WebSocket lanes")' "$WEB_MODEL"
+          grep -q 'carrier.default = "https"' "$WEB_MODEL"
+          if grep -qE 'option\([^,]+,[[:space:]]*"(carrier_policy|carrier_candidate|carrier_learning|carrier_negotiation_aggressiveness)"' "$WEB_MODEL"; then
+            echo 'ERROR: LAB-5A must not expose WEB auto-negotiation controls' >&2
+            exit 1
+          fi
+
           # The WEB page exposes the three mutually exclusive frontend modes.
           grep -q 'frontend:value("external"' "$WEB_MODEL"
           grep -q 'frontend:value("haproxy"' "$WEB_MODEL"
