@@ -49,11 +49,25 @@ jobs:
           # Fixed helper endpoints only; LuCI must never execute an arbitrary command.
           grep -q 'call("web_frontend_action")' "$CONTROLLER"
           grep -q 'act ~= "check" and act ~= "apply" and act ~= "restore"' "$CONTROLLER"
+          grep -q 'haproxy = "/usr/libexec/telemt-web-frontend"' "$CONTROLLER"
+          grep -q 'nginx = "/usr/libexec/telemt-web-nginx"' "$CONTROLLER"
           grep -q 'call("web_qr")' "$CONTROLLER"
           grep -q 'tg://webproxy?server=' "$CONTROLLER"
           grep -q 'tg://webproxy?server=' "$WEB_MODEL"
           grep -q 'X-Requested-With' "$WEB_MODEL"
           grep -q 'HTTP_X_REQUESTED_WITH' "$CONTROLLER"
+
+          # The WEB page exposes the three mutually exclusive frontend modes.
+          grep -q 'frontend:value("external"' "$WEB_MODEL"
+          grep -q 'frontend:value("haproxy"' "$WEB_MODEL"
+          grep -q 'frontend:value("nginx"' "$WEB_MODEL"
+          grep -q '"nginx_managed"' "$WEB_MODEL"
+          grep -q '"nginx_bind"' "$WEB_MODEL"
+          grep -q '"nginx_cert"' "$WEB_MODEL"
+          grep -q '"nginx_key"' "$WEB_MODEL"
+          grep -q '"nginx_auto_fw"' "$WEB_MODEL"
+          grep -q 'saved_frontend' "$WEB_MODEL"
+          grep -q '/usr/libexec/telemt-web-nginx' "$WEB_MODEL"
 
           # WEB profiles reference shared config user; no WEB-specific secret option.
           grep -q 'pr:option(ListValue, "user"' "$WEB_MODEL"
