@@ -26,6 +26,8 @@ jobs:
           set -euxo pipefail
           luac5.1 -p usr/lib/lua/luci/controller/telemt.lua
           luac5.1 -p usr/lib/lua/luci/model/cbi/telemt.lua
+          luac5.1 -p usr/lib/lua/luci/model/cbi/telemt_legacy.lua
+          luac5.1 -p usr/lib/lua/luci/model/cbi/telemt_users_web.lua
           luac5.1 -p usr/lib/lua/luci/model/cbi/telemt_web.lua
 
       - name: Validate LuCI JSON
@@ -40,9 +42,15 @@ jobs:
           set -euxo pipefail
 
           WEB_MODEL=usr/lib/lua/luci/model/cbi/telemt_web.lua
+          USERS_WRAPPER=usr/lib/lua/luci/model/cbi/telemt.lua
+          USERS_LEGACY=usr/lib/lua/luci/model/cbi/telemt_legacy.lua
+          USERS_WEB=usr/lib/lua/luci/model/cbi/telemt_users_web.lua
           CONTROLLER=usr/lib/lua/luci/controller/telemt.lua
 
           test -s "$WEB_MODEL"
+          test -s "$USERS_WRAPPER"
+          test -s "$USERS_LEGACY"
+          test -s "$USERS_WEB"
           grep -q 'cbi("telemt_web")' "$CONTROLLER"
           grep -q '"path": "telemt_web"' usr/share/luci/menu.d/luci-app-telemt.json
 
@@ -80,6 +88,23 @@ jobs:
           grep -q 'carrier_aggr:value("aggressive"' "$WEB_MODEL"
           grep -q 'carrier_aggr.default = "conservative"' "$WEB_MODEL"
 
+          # Users integration: keep the old large CBI model untouched behind a
+          # thin wrapper and surface WEB bindings without cloning user secrets.
+          grep -q 'require "luci.model.cbi.telemt_legacy"' "$USERS_WRAPPER"
+          grep -q 'require "luci.model.cbi.telemt_users_web"' "$USERS_WRAPPER"
+          grep -q 'return web_users.attach(legacy)' "$USERS_WRAPPER"
+          grep -q 'uci:foreach("telemt", "web_profile"' "$USERS_WEB"
+          grep -q 'tg://webproxy?server=' "$USERS_WEB"
+          grep -q 'WEB: ' "$USERS_WEB"
+          grep -q 'Copy WEB' "$USERS_WEB"
+          grep -q 'web_qr' "$USERS_WEB"
+          grep -q 'self.map.uci:delete("telemt", sid)' "$USERS_WEB"
+          grep -q 'Delete the user and all of these WEB bindings' "$USERS_WEB"
+          if grep -qE 'set\("telemt".*(web_)?secret|option\([^,]+,[[:space:]]*"(web_)?secret"' "$USERS_WEB"; then
+            echo 'ERROR: Users WEB integration must not create a second secret store' >&2
+            exit 1
+          fi
+
           # The WEB page exposes the three mutually exclusive frontend modes.
           grep -q 'frontend:value("external"' "$WEB_MODEL"
           grep -q 'frontend:value("haproxy"' "$WEB_MODEL"
@@ -105,7 +130,7 @@ jobs:
             exit 1
           fi
 
-          # nFPM payload is the whole usr tree, therefore telemt_web.lua is included
-          # without adding a second package-content declaration.
+          # nFPM payload is the whole usr tree, therefore all CBI wrapper files
+          # are included without a second package-content declaration.
           grep -qE 'src:[[:space:]]*\./usr' nfpm.yaml
           grep -qE 'dst:[[:space:]]*/usr' nfpm.yaml
