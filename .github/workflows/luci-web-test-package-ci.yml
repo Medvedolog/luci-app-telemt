@@ -74,38 +74,32 @@ jobs:
           owfeed lock --update
           owfeed plan
 
+      - name: Validate staged LuCI payload
+        shell: bash
+        run: |
+          set -euxo pipefail
+          test -f .ci-owfeed/root/usr/lib/lua/luci/model/cbi/telemt.lua
+          test -f .ci-owfeed/root/usr/lib/lua/luci/model/cbi/telemt_legacy.lua
+          test -f .ci-owfeed/root/usr/lib/lua/luci/model/cbi/telemt_memory_budget.lua
+          test -f .ci-owfeed/root/usr/lib/lua/luci/model/cbi/telemt_web.lua
+          test ! -e .ci-owfeed/root/etc/config/telemt
+
+      - name: Run owfeed self-check
+        shell: bash
+        run: |
+          set -euxo pipefail
+          owfeed check
+
       - name: Build OpenWrt 24.10 IPK with owfeed
         shell: bash
         run: |
           set -euxo pipefail
           owfeed build --release 24.10 -o dist-ipk
-
           test "$(find dist-ipk -type f -name '*.ipk' | wc -l)" -eq 1
           ipk="$(find dist-ipk -type f -name 'luci-app-telemt*.ipk' | head -n1)"
           test -n "$ipk"
           test -s "$ipk"
-          test "$(od -An -tx1 -N8 "$ipk" | tr -d ' \n')" = 213c617263683e0a
-
-          rm -rf .ci-ipk
-          mkdir -p .ci-ipk
-          ar t "$ipk" > .ci-ipk/ar-members.txt
-          grep -q '^debian-binary$' .ci-ipk/ar-members.txt
-          ar p "$ipk" control.tar.gz > .ci-ipk/control.tar.gz
-          ar p "$ipk" data.tar.gz > .ci-ipk/data.tar.gz
-          tar -xOzf .ci-ipk/control.tar.gz ./control > .ci-ipk/control.txt
-          tar -tzf .ci-ipk/data.tar.gz > .ci-ipk/files.txt
-
-          grep -q '^Package: luci-app-telemt$' .ci-ipk/control.txt
-          grep -q '^Architecture: all$' .ci-ipk/control.txt
-          grep -Eq '(^|\./)usr/lib/lua/luci/model/cbi/telemt.lua$' .ci-ipk/files.txt
-          grep -Eq '(^|\./)usr/lib/lua/luci/model/cbi/telemt_legacy.lua$' .ci-ipk/files.txt
-          grep -Eq '(^|\./)usr/lib/lua/luci/model/cbi/telemt_memory_budget.lua$' .ci-ipk/files.txt
-          grep -Eq '(^|\./)usr/lib/lua/luci/model/cbi/telemt_web.lua$' .ci-ipk/files.txt
-          if grep -Eq '(^|\./)etc/config/telemt$' .ci-ipk/files.txt; then
-            echo 'ERROR: LuCI IPK must not own /etc/config/telemt' >&2
-            exit 1
-          fi
-
+          file "$ipk"
           cp "$ipk" test-packages/ipk/
 
       - name: Build OpenWrt 25.12 APKv3 with owfeed
@@ -136,7 +130,5 @@ jobs:
           name: luci-app-telemt-web-test-packages
           path: |
             test-packages/
-            .ci-ipk/control.txt
-            .ci-ipk/files.txt
           if-no-files-found: error
           retention-days: 14
