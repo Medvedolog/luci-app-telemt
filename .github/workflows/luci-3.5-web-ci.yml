@@ -53,7 +53,9 @@ jobs:
           test -s "$USERS_LEGACY"
           test -s "$USERS_WEB"
           grep -q 'cbi("telemt_web")' "$CONTROLLER"
-          grep -q '"path": "telemt_web"' usr/share/luci/menu.d/luci-app-telemt.json
+          grep -q 'cbi("telemt_web")' "$CONTROLLER"
+          grep -q 'WEB Proxy' "$WEB_MODEL"
+          grep -q 'telemt_adv=1' "$WEB_MODEL"
 
           # Fixed helper endpoints only; LuCI must never execute an arbitrary command.
           grep -q 'call("web_frontend_action")' "$CONTROLLER"
