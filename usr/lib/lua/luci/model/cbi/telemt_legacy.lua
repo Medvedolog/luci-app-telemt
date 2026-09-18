@@ -760,6 +760,19 @@ usc.placeholder = "premium,me"; function usc.validate(self, v)
 end
 
 -- === TAB: ADVANCED ===
+
+-- Secondary navigation inside Advanced Tuning. WEB Proxy keeps its own CBI
+-- model/route, but is presented as a child tab instead of a separate Services item.
+local adv_subnav = s:taboption("advanced", DummyValue, "_advanced_subnav", "")
+adv_subnav.rawhtml = true
+adv_subnav.default = string.format([[
+<div class="telemt-advanced-subtabs" style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 16px 0;padding:6px;border-bottom:1px solid rgba(128,128,128,.25);">
+  <span class="cbi-tab cbi-tab-active" style="display:inline-block;padding:7px 12px;font-weight:bold;">Tuning</span>
+  <a class="cbi-tab" href="%s" style="display:inline-block;padding:7px 12px;text-decoration:none;">WEB Proxy</a>
+</div>
+]], dsp.build_url("admin", "services", "telemt", "web"))
+
+
 local hnet = s:taboption("advanced", DummyValue, "_head_net"); hnet.rawhtml = true; hnet.default =
 "<h3>Network Listeners</h3>"
 s:taboption("advanced", Flag, "listen_ipv4", "Enable IPv4 Listener" .. tip("Listen for incoming IPv4 connections on 0.0.0.0")).default =
@@ -1192,6 +1205,25 @@ local lnk = s2:option(DummyValue, "_link", "Ready-to-use link" .. tip("Click the
 end
 
 m.description = [[
+
+<script type="text/javascript">
+(function(){
+    if (!/[?&]telemt_adv=1(?:&|$)/.test(window.location.search)) return;
+    function openAdvanced(){
+        var links=document.querySelectorAll('a');
+        for(var i=0;i<links.length;i++){
+            var t=(links[i].textContent||'').replace(/\s+/g,' ').trim();
+            if(t === 'Advanced Tuning'){
+                try { links[i].click(); } catch(e) {}
+                return;
+            }
+        }
+    }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){setTimeout(openAdvanced,100);});
+    else setTimeout(openAdvanced,100);
+})();
+</script>
+
 <style>
 .cbi-value-helpicon, img[src*="help.gif"], img[src*="help.png"], .cbi-tooltip-container, .cbi-tooltip { display: none !important; }
 .cbi-value-description::before, .cbi-value-description img { display: none !important; content: none !important; margin: 0 !important; padding: 0 !important; width: 0 !important; height: 0 !important; }
