@@ -163,20 +163,22 @@ end
 web = m:section(NamedSection, "web", "web", _("WEB Proxy"))
 web.addremove = false
 web.anonymous = true
+web:tab("settings", _("Settings"))
+web:tab("frontend", _("Frontend"))
 
-enabled = web:option(Flag, "enabled", _("Enable WEB Proxy"))
+enabled = web:taboption("settings", Flag, "enabled", _("Enable WEB Proxy"))
 enabled.rmempty = false
 enabled.default = enabled.disabled
 enabled.description = _("WEB remains disabled on upgrade until explicitly enabled.")
 
-carrier_policy = web:option(ListValue, "carrier_policy", _("Carrier policy"))
+carrier_policy = web:taboption("settings", ListValue, "carrier_policy", _("Carrier policy"))
 carrier_policy:value("fixed", _("Fixed"))
 carrier_policy:value("auto", _("Auto negotiation"))
 carrier_policy.default = "fixed"
 carrier_policy.rmempty = false
 carrier_policy.description = _("Fixed uses one carrier. Auto tries the ordered candidate list and keeps the Carrier field below as the final fallback.")
 
-carrier = web:option(ListValue, "carrier", _("Carrier / fallback"))
+carrier = web:taboption("settings", ListValue, "carrier", _("Carrier / fallback"))
 carrier:value("https", "HTTPS")
 carrier:value("https-lanes", "HTTPS lanes")
 carrier:value("websocket", "WebSocket")
@@ -185,7 +187,7 @@ carrier.default = "https"
 carrier.rmempty = false
 carrier.description = _("In Fixed mode this is the only carrier. In Auto mode this is the final fallback and is not required in the candidate list.")
 
-carrier_candidates = web:option(DynamicList, "carrier_candidate", _("Auto carrier candidates"))
+carrier_candidates = web:taboption("settings", DynamicList, "carrier_candidate", _("Auto carrier candidates"))
 carrier_candidates:depends("carrier_policy", "auto")
 carrier_candidates:value("websocket-lanes", "WebSocket lanes")
 carrier_candidates:value("websocket", "WebSocket")
@@ -211,13 +213,13 @@ function carrier_candidates.validate(self, value, section)
     return nil, _("Invalid WEB carrier candidate")
 end
 
-carrier_learning = web:option(Flag, "carrier_learning", _("Carrier learning"))
+carrier_learning = web:taboption("settings", Flag, "carrier_learning", _("Carrier learning"))
 carrier_learning:depends("carrier_policy", "auto")
 carrier_learning.default = carrier_learning.enabled
 carrier_learning.rmempty = false
 carrier_learning.description = _("Enable Telemt's bounded process-local carrier learning for Auto mode.")
 
-carrier_aggr = web:option(ListValue, "carrier_negotiation_aggressiveness", _("Negotiation aggressiveness"))
+carrier_aggr = web:taboption("settings", ListValue, "carrier_negotiation_aggressiveness", _("Negotiation aggressiveness"))
 carrier_aggr:depends("carrier_policy", "auto")
 carrier_aggr:value("conservative", _("Conservative"))
 carrier_aggr:value("balanced", _("Balanced"))
@@ -226,7 +228,7 @@ carrier_aggr.default = "conservative"
 carrier_aggr.rmempty = false
 carrier_aggr.description = _("Conservative is the default. Balanced and Aggressive are manual advanced choices.")
 
-frontend = web:option(ListValue, "tls_terminator", _("TLS frontend"))
+frontend = web:taboption("frontend", ListValue, "tls_terminator", _("TLS frontend"))
 frontend:value("external", _("External / already configured"))
 frontend:value("haproxy", _("HAProxy"))
 frontend:value("nginx", _("NGINX"))
@@ -234,13 +236,13 @@ frontend.default = "external"
 frontend.rmempty = false
 frontend.description = _("Telemt WEB listens for private plain HTTP. Public TLS must terminate before it reaches Telemt.")
 
-hm = web:option(Flag, "haproxy_managed", _("Manage HAProxy configuration"))
+hm = web:taboption("frontend", Flag, "haproxy_managed", _("Manage HAProxy configuration"))
 hm:depends("tls_terminator", "haproxy")
 hm.default = hm.disabled
 hm.rmempty = false
 hm.description = _("Opt-in takeover of /etc/haproxy.cfg. The core helper saves the original once and validates generated configuration with haproxy -c before replacing it.")
 
-hb = web:option(Value, "haproxy_bind", _("HAProxy public bind"))
+hb = web:taboption("frontend", Value, "haproxy_bind", _("HAProxy public bind"))
 hb:depends({ tls_terminator = "haproxy", haproxy_managed = "1" })
 hb.default = ":443"
 hb.placeholder = ":443"
@@ -254,30 +256,30 @@ function hb.validate(self, value, section)
     return nil, _("HAProxy bind must be an address on TCP/443")
 end
 
-hc = web:option(Value, "haproxy_cert", _("Certificate / fullchain PEM"))
+hc = web:taboption("frontend", Value, "haproxy_cert", _("Certificate / fullchain PEM"))
 hc:depends({ tls_terminator = "haproxy", haproxy_managed = "1" })
 hc.placeholder = "/etc/acme/example/fullchain.cer"
 hc.rmempty = true
 hc.description = _("If the PEM already contains the private key, leave the key field empty.")
 
-hk = web:option(Value, "haproxy_key", _("Private key"))
+hk = web:taboption("frontend", Value, "haproxy_key", _("Private key"))
 hk:depends({ tls_terminator = "haproxy", haproxy_managed = "1" })
 hk.placeholder = "/etc/acme/example/example.key"
 hk.rmempty = true
 
-hfw = web:option(Flag, "haproxy_auto_fw", _("Open WAN TCP/443 after successful apply"))
+hfw = web:taboption("frontend", Flag, "haproxy_auto_fw", _("Open WAN TCP/443 after successful apply"))
 hfw:depends({ tls_terminator = "haproxy", haproxy_managed = "1" })
 hfw.default = hfw.enabled
 hfw.rmempty = false
 hfw.description = _("The private Telemt backend port is never opened by this option.")
 
-nm = web:option(Flag, "nginx_managed", _("Manage NGINX fragment"))
+nm = web:taboption("frontend", Flag, "nginx_managed", _("Manage NGINX fragment"))
 nm:depends("tls_terminator", "nginx")
 nm.default = nm.disabled
 nm.rmempty = false
 nm.description = _("Opt-in ownership of /etc/nginx/conf.d/telemt-web.conf only. The core helper never overwrites /etc/config/nginx or the OpenWrt-generated main NGINX configuration.")
 
-nb = web:option(Value, "nginx_bind", _("NGINX public bind"))
+nb = web:taboption("frontend", Value, "nginx_bind", _("NGINX public bind"))
 nb:depends({ tls_terminator = "nginx", nginx_managed = "1" })
 nb.default = "443"
 nb.placeholder = "443"
@@ -291,22 +293,22 @@ function nb.validate(self, value, section)
     return nil, _("NGINX bind must be 443 or an IPv4 address on TCP/443")
 end
 
-n6 = web:option(Flag, "nginx_ipv6", _("Also listen on [::]:443"))
+n6 = web:taboption("frontend", Flag, "nginx_ipv6", _("Also listen on [::]:443"))
 n6:depends({ tls_terminator = "nginx", nginx_managed = "1" })
 n6.default = n6.disabled
 n6.rmempty = false
 
-nc = web:option(Value, "nginx_cert", _("NGINX certificate / fullchain PEM"))
+nc = web:taboption("frontend", Value, "nginx_cert", _("NGINX certificate / fullchain PEM"))
 nc:depends({ tls_terminator = "nginx", nginx_managed = "1" })
 nc.placeholder = "/etc/acme/example/fullchain.cer"
 nc.rmempty = true
 
-nk = web:option(Value, "nginx_key", _("NGINX private key"))
+nk = web:taboption("frontend", Value, "nginx_key", _("NGINX private key"))
 nk:depends({ tls_terminator = "nginx", nginx_managed = "1" })
 nk.placeholder = "/etc/acme/example/example.key"
 nk.rmempty = true
 
-nfw = web:option(Flag, "nginx_auto_fw", _("Open WAN TCP/443 after successful apply"))
+nfw = web:taboption("frontend", Flag, "nginx_auto_fw", _("Open WAN TCP/443 after successful apply"))
 nfw:depends({ tls_terminator = "nginx", nginx_managed = "1" })
 nfw.default = nfw.enabled
 nfw.rmempty = false
