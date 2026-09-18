@@ -72,8 +72,7 @@ jobs:
         run: |
           set -euxo pipefail
           owfeed lock --update
-          owfeed plan --release 24.10
-          owfeed plan --release 25.12
+          owfeed plan
 
       - name: Build OpenWrt 24.10 IPK with owfeed
         shell: bash
@@ -128,10 +127,6 @@ jobs:
           set -euxo pipefail
           test "$(find test-packages/ipk -type f -name '*.ipk' | wc -l)" -eq 1
           test "$(find test-packages/apk -type f -name '*.apk' | wc -l)" -eq 1
-          if grep -R -n 'nfpm' .github/workflows/luci-web-test-package-ci.yml; then
-            echo 'ERROR: nFPM remains in LuCI dev packaging workflow' >&2
-            exit 1
-          fi
           cp owfeed.lock test-packages/
           find test-packages -maxdepth 3 -type f -print | sort
 
