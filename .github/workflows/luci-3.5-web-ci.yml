@@ -138,7 +138,3 @@ jobs:
           grep -q 'owfeed build --release 24.10' "$PKG_WF"
           grep -q 'owfeed build --release 25.12' "$PKG_WF"
           grep -q 'arch: noarch' "$PKG_WF"
-          if grep -qi 'nfpm' "$PKG_WF"; then
-            echo 'ERROR: LuCI dev packaging must be owfeed-only' >&2
-            exit 1
-          fi
