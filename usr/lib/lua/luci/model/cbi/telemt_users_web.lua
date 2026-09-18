@@ -116,6 +116,92 @@ function M.attach(m)
 .telemt-web-link-out { width:100%; box-sizing:border-box; font-family:monospace; font-size:10px; height:28px; background:transparent; color:inherit; border:1px solid rgba(128,128,128,.4); }
 .telemt-web-link-actions { display:flex; gap:4px; margin-top:3px; }
 .telemt-web-link-actions .cbi-button { height:24px !important; min-height:24px !important; line-height:22px !important; padding:0 8px !important; font-size:11px !important; }
+
+/* Tablet layout: the legacy tblsection is wider than the usable LuCI content
+ * area once the sidebar is present.  Keep desktop unchanged, but turn each
+ * user row into a two-column card before it starts overflowing horizontally. */
+@media screen and (min-width: 769px) and (max-width: 1600px) {
+    #cbi-telemt-user .cbi-section-table {
+        display:block !important;
+        width:100% !important;
+        table-layout:fixed !important;
+    }
+    #cbi-telemt-user .cbi-section-table > thead,
+    #cbi-telemt-user .cbi-section-table > tbody > tr.cbi-section-table-titles {
+        display:none !important;
+    }
+    #cbi-telemt-user .cbi-section-table > tbody {
+        display:block !important;
+        width:100% !important;
+    }
+    #cbi-telemt-user .cbi-section-table .cbi-section-table-row {
+        display:grid !important;
+        grid-template-columns:minmax(0, 1fr) minmax(0, 1fr) !important;
+        gap:10px 16px !important;
+        width:100% !important;
+        box-sizing:border-box !important;
+        margin:0 0 14px 0 !important;
+        padding:12px !important;
+        border:1px solid var(--border-color, rgba(128,128,128,.25)) !important;
+        border-radius:8px !important;
+        background:rgba(128,128,128,.025) !important;
+    }
+    #cbi-telemt-user .cbi-section-table .cbi-section-table-row > td {
+        display:block !important;
+        width:auto !important;
+        min-width:0 !important;
+        max-width:none !important;
+        box-sizing:border-box !important;
+        padding:0 !important;
+        border:0 !important;
+        white-space:normal !important;
+        vertical-align:top !important;
+    }
+    #cbi-telemt-user .cbi-section-table .cbi-section-table-row > td[data-title]::before {
+        content:attr(data-title) !important;
+        display:block !important;
+        margin:0 0 4px 0 !important;
+        font-size:10px !important;
+        line-height:1.2 !important;
+        font-weight:700 !important;
+        text-transform:uppercase !important;
+        letter-spacing:.03em !important;
+        opacity:.62 !important;
+    }
+    #cbi-telemt-user td[data-name="secret"],
+    #cbi-telemt-user td[data-name="_stat"],
+    #cbi-telemt-user td[data-name="_link"],
+    #cbi-telemt-user td.cbi-section-actions {
+        grid-column:span 2 !important;
+    }
+    #cbi-telemt-user td[data-name="secret"] .telemt-sec-wrap,
+    #cbi-telemt-user td[data-name="_link"] .link-wrapper,
+    #cbi-telemt-user td[data-name="expire_date"] .telemt-num-wrap,
+    #cbi-telemt-user td[data-name="max_tcp_conns"] .telemt-num-wrap,
+    #cbi-telemt-user td[data-name="max_unique_ips"] .telemt-num-wrap,
+    #cbi-telemt-user td[data-name="data_quota"] .telemt-num-wrap {
+        min-width:0 !important;
+        max-width:none !important;
+        width:100% !important;
+    }
+    #cbi-telemt-user .user-link-out,
+    #cbi-telemt-user .telemt-web-link-out {
+        width:100% !important;
+        min-width:0 !important;
+        max-width:100% !important;
+    }
+    #cbi-telemt-user .user-flat-stat,
+    #cbi-telemt-user .user-flat-stat > div {
+        white-space:normal !important;
+        flex-wrap:wrap !important;
+    }
+    #cbi-telemt-user .cbi-section-actions {
+        display:flex !important;
+        justify-content:flex-start !important;
+        align-items:center !important;
+        padding-top:4px !important;
+    }
+}
 </style>
 <script type="text/javascript">
 (function(){
