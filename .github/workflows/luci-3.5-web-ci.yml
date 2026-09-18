@@ -70,7 +70,7 @@ jobs:
 
           # LAB-5A/5B: all four exact carrier values remain available, with
           # fixed as default and explicit auto-negotiation controls.
-          grep -q 'carrier_policy = web:option(ListValue, "carrier_policy"' "$WEB_MODEL"
+          grep -q 'carrier_policy = web:taboption("settings", ListValue, "carrier_policy"' "$WEB_MODEL"
           grep -q 'carrier_policy:value("fixed"' "$WEB_MODEL"
           grep -q 'carrier_policy:value("auto"' "$WEB_MODEL"
           grep -q 'carrier_policy.default = "fixed"' "$WEB_MODEL"
@@ -79,13 +79,13 @@ jobs:
           grep -q 'carrier:value("websocket", "WebSocket")' "$WEB_MODEL"
           grep -q 'carrier:value("websocket-lanes", "WebSocket lanes")' "$WEB_MODEL"
           grep -q 'carrier.default = "https"' "$WEB_MODEL"
-          grep -q 'carrier_candidates = web:option(DynamicList, "carrier_candidate"' "$WEB_MODEL"
+          grep -q 'carrier_candidates = web:taboption("settings", DynamicList, "carrier_candidate"' "$WEB_MODEL"
           grep -q 'carrier_candidates:depends("carrier_policy", "auto")' "$WEB_MODEL"
           grep -q 'carrier_candidates.default = { "websocket-lanes", "websocket", "https-lanes" }' "$WEB_MODEL"
           grep -q 'Duplicate WEB carrier candidate' "$WEB_MODEL"
-          grep -q 'carrier_learning = web:option(Flag, "carrier_learning"' "$WEB_MODEL"
+          grep -q 'carrier_learning = web:taboption("settings", Flag, "carrier_learning"' "$WEB_MODEL"
           grep -q 'carrier_learning.default = carrier_learning.enabled' "$WEB_MODEL"
-          grep -q 'carrier_aggr = web:option(ListValue, "carrier_negotiation_aggressiveness"' "$WEB_MODEL"
+          grep -q 'carrier_aggr = web:taboption("settings", ListValue, "carrier_negotiation_aggressiveness"' "$WEB_MODEL"
           grep -q 'carrier_aggr:value("conservative"' "$WEB_MODEL"
           grep -q 'carrier_aggr:value("balanced"' "$WEB_MODEL"
           grep -q 'carrier_aggr:value("aggressive"' "$WEB_MODEL"
