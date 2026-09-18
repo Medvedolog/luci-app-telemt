@@ -67,6 +67,8 @@ jobs:
           grep -q 'tg://webproxy?server=' "$WEB_MODEL"
           grep -q 'X-Requested-With' "$WEB_MODEL"
           grep -q 'HTTP_X_REQUESTED_WITH' "$CONTROLLER"
+          grep -q 'pcall(require, "luci.i18n")' "$WEB_MODEL"
+          grep -q 'local _ = (ok_i18n and i18n and i18n.translate)' "$WEB_MODEL"
 
           # LAB-5A/5B: all four exact carrier values remain available, with
           # fixed as default and explicit auto-negotiation controls.
