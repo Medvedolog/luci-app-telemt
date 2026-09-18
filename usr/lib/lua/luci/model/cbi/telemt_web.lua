@@ -8,6 +8,11 @@ local sys = require "luci.sys"
 local dsp = require "luci.dispatcher"
 local uci = require("luci.model.uci").cursor()
 
+-- ucodebridge on OpenWrt 24.10 does not reliably inject the global _()
+-- translator into standalone CBI routes. Use luci.i18n explicitly.
+local ok_i18n, i18n = pcall(require, "luci.i18n")
+local _ = (ok_i18n and i18n and i18n.translate) or function(s) return s end
+
 local function trim(s)
     return (tostring(s or ""):gsub("^%s+", ""):gsub("%s+$", ""))
 end
