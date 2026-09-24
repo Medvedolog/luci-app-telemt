@@ -1,12 +1,12 @@
 -- -- ==============================================================================
 -- Telemt CBI Model (Configuration Binding Interface)
--- Version: 3.4.0
+-- Version: 3.5.7-r2 WEB alpha
 -- Changes from 3.3.31:
 --   - metrics_listen_addr / api_listen_addr (external metrics/API bind, default loopback)
 --   - client_mss (3.4.18) global TCP MSS clamp in [server]
 --   - mask_dynamic (3.4.18) surfaced as Flag in [censorship]
 --   - Argon/AJAX-theme bootstrap fix (status panel no longer stuck on PENDING)
---   - All version strings bumped to 3.4.0; requires telemt v3.4.15+
+--   - WEB alpha UI aligned with Telemt 3.5.7; package revision r2
 -- Earlier: Version: 3.3.29
 -- Changes from 3.3.21:
 --   - Dark theme fix: replaced hardcoded color:#555/#888 with inherit/opacity
@@ -536,7 +536,7 @@ if bin_path ~= "" then
 end
 
 m = Map("telemt", "Telegram Proxy (MTProto)",
-    [[Multi-user proxy server based on <a href="https://github.com/telemt/telemt" target="_blank" style="text-decoration:none; color:inherit; font-weight:bold; border-bottom: 1px dotted currentColor;">telemt</a>.<br><b>LuCI App Version: <a href="https://github.com/Medvedolog/luci-app-telemt" target="_blank" style="text-decoration:none; color:inherit; border-bottom: 1px dotted currentColor;">3.4.0</a></b> | <span style='color:#d35400; font-weight:bold;'>Requires telemt v3.4.15+</span>]])
+    [[Multi-user proxy server based on <a href="https://github.com/telemt/telemt" target="_blank" style="text-decoration:none; color:inherit; font-weight:bold; border-bottom: 1px dotted currentColor;">telemt</a>.<br><b>LuCI App Version: <a href="https://github.com/Medvedolog/luci-app-telemt" target="_blank" style="text-decoration:none; color:inherit; border-bottom: 1px dotted currentColor;">3.5.7-r2 WEB alpha</a></b> | <span style='color:#d35400; font-weight:bold;'>WEB requires telemt v3.5.7+</span>]])
 m.on_commit = function(self)
     sys.call(
         "logger -t telemt 'WebUI: Config saved. Dumping stats before procd reload...'; /etc/init.d/telemt run_save_stats 2>/dev/null")
@@ -766,10 +766,10 @@ end
 local adv_subnav = s:taboption("advanced", DummyValue, "_advanced_subnav", "")
 adv_subnav.rawhtml = true
 adv_subnav.default = string.format([[
-<div class="telemt-advanced-subtabs" style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 16px 0;padding:6px;border-bottom:1px solid rgba(128,128,128,.25);">
-  <span class="cbi-tab cbi-tab-active" style="display:inline-block;padding:7px 12px;font-weight:bold;">Tuning</span>
-  <a class="cbi-tab" href="%s" style="display:inline-block;padding:7px 12px;text-decoration:none;">WEB Proxy</a>
-</div>
+<ul class="cbi-tabmenu telemt-advanced-subtabs" style="margin:0 0 16px 0;">
+  <li class="cbi-tab"><a href="javascript:void(0)">Tuning</a></li>
+  <li class="cbi-tab-disabled"><a href="%s">WEB Proxy</a></li>
+</ul>
 ]], dsp.build_url("admin", "services", "telemt", "web"))
 
 
