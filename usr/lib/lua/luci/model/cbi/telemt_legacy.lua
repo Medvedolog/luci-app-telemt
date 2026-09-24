@@ -1216,7 +1216,7 @@ m.description = [[
                 links[i].dataset.telemtWebBound = '1';
                 links[i].addEventListener('click', function(ev) {
                     ev.preventDefault();
-                    window.location.href = '/cgi-bin/luci/admin/services/telemt/web';
+                    window.location.href = window.location.pathname.replace(/\/$/, '') + '/web';
                 });
             }
         }
