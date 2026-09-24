@@ -1,7 +1,7 @@
 #!/bin/sh
 echo ""
 echo "================================================================="
-echo " Installing luci-app-telemt WebUI (v3.4.0)"
+echo " Installing luci-app-telemt WebUI (v3.5.7-r2 WEB alpha)"
 echo "================================================================="
 
 # Checking for standalone telemt
@@ -12,8 +12,8 @@ if [ ! -x "/usr/bin/telemt" ]; then
     echo " https://github.com/Medvedolog/telemt_owrt/releases"
 else
     echo " OK: telemt binary found."
-    echo " REMINDER: This legacy WebUI path requires telemt core version >= 3.4.15."
-    echo " The 3.5.x WEB development line targets telemt core 3.5.6."
+    echo " REMINDER: This WEB alpha UI requires telemt core version >= 3.5.7."
+    echo " The current WEB development line targets telemt core 3.5.7."
     echo " You can always download the latest core IPK/APK from:"
     echo " https://github.com/Medvedolog/telemt_owrt/releases"
 fi
