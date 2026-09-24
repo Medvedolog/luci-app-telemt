@@ -152,10 +152,10 @@ local subnav = m:section(SimpleSection)
 local subnav_value = subnav:option(DummyValue, "_advanced_subnav")
 subnav_value.rawhtml = true
 subnav_value.default = string.format([[
-<div class="telemt-advanced-subtabs" style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 16px 0;padding:6px;border-bottom:1px solid rgba(128,128,128,.25);">
-  <a class="cbi-tab" href="%s?telemt_adv=1" style="display:inline-block;padding:7px 12px;text-decoration:none;">Tuning</a>
-  <span class="cbi-tab cbi-tab-active" style="display:inline-block;padding:7px 12px;font-weight:bold;">WEB Proxy</span>
-</div>
+<ul class="cbi-tabmenu telemt-advanced-subtabs" style="margin:0 0 16px 0;">
+  <li class="cbi-tab-disabled"><a href="%s?telemt_adv=1">Tuning</a></li>
+  <li class="cbi-tab"><a href="javascript:void(0)">WEB Proxy</a></li>
+</ul>
 ]], dsp.build_url("admin", "services", "telemt"))
 
 -- -----------------------------------------------------------------------------
