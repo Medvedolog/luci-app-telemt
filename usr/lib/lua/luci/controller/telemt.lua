@@ -10,7 +10,7 @@ function index()
 
     -- Telemt 3.5.6+ WEB Proxy configuration. Kept in a separate CBI model so the
     -- large legacy telemt.lua does not become the second source of WEB logic.
-    entry({"admin", "services", "telemt", "web"}, cbi("telemt_web"), _("WEB Proxy"), 60).leaf = true
+    entry({"admin", "services", "telemt", "web"}, cbi("telemt_web")).leaf = true
 
     -- AJAX-only frontend helper endpoint. It never accepts arbitrary commands:
     -- only the three fixed operations supported by the core helpers are allowed.
