@@ -546,11 +546,20 @@ s = m:section(NamedSection, "general", "telemt")
 s.anonymous = true
 
 s:tab("general", "General Settings")
+s:tab("web_proxy", "WEB Proxy")
 s:tab("advanced", "Advanced Tuning")
 s:tab("upstreams", "Upstreams")
 s:tab("users", "Users")
 s:tab("bot", "Telegram Bot")
 s:tab("log", "Diagnostics")
+
+-- === TAB: WEB PROXY ROUTE ===
+local web_tab_route = s:taboption("web_proxy", DummyValue, "_web_proxy_route", "")
+web_tab_route.rawhtml = true
+web_tab_route.default = string.format(
+    '<div style="padding:12px 0;"><a class="cbi-button cbi-button-action" href="%s">Open WEB Proxy</a></div>',
+    dsp.build_url("admin", "services", "telemt", "web")
+)
 
 -- === TAB: GENERAL ===
 s:taboption("general", Flag, "enabled", "Enable Service")
@@ -760,18 +769,6 @@ usc.placeholder = "premium,me"; function usc.validate(self, v)
 end
 
 -- === TAB: ADVANCED ===
-
--- Secondary navigation inside Advanced Tuning. WEB Proxy keeps its own CBI
--- model/route, but is presented as a child tab instead of a separate Services item.
-local adv_subnav = s:taboption("advanced", DummyValue, "_advanced_subnav", "")
-adv_subnav.rawhtml = true
-adv_subnav.default = string.format([[
-<ul class="cbi-tabmenu telemt-advanced-subtabs" style="margin:0 0 16px 0;">
-  <li class="cbi-tab"><a href="javascript:void(0)">Tuning</a></li>
-  <li class="cbi-tab-disabled"><a href="%s">WEB Proxy</a></li>
-</ul>
-]], dsp.build_url("admin", "services", "telemt", "web"))
-
 
 local hnet = s:taboption("advanced", DummyValue, "_head_net"); hnet.rawhtml = true; hnet.default =
 "<h3>Network Listeners</h3>"
@@ -1208,19 +1205,37 @@ m.description = [[
 
 <script type="text/javascript">
 (function(){
-    if (!/[?&]telemt_adv=1(?:&|$)/.test(window.location.search)) return;
-    function openAdvanced(){
-        var links=document.querySelectorAll('a');
-        for(var i=0;i<links.length;i++){
-            var t=(links[i].textContent||'').replace(/\s+/g,' ').trim();
-            if(t === 'Advanced Tuning'){
-                try { links[i].click(); } catch(e) {}
+    function tabText(a) {
+        return (a.textContent || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function bindTelemtTabs() {
+        var links = document.querySelectorAll('.cbi-tabmenu a');
+        for (var i = 0; i < links.length; i++) {
+            if (tabText(links[i]) === 'WEB Proxy' && !links[i].dataset.telemtWebBound) {
+                links[i].dataset.telemtWebBound = '1';
+                links[i].addEventListener('click', function(ev) {
+                    ev.preventDefault();
+                    window.location.href = '/cgi-bin/luci/admin/services/telemt/web';
+                });
+            }
+        }
+
+        var m = window.location.search.match(/[?&]telemt_tab=([^&]+)/);
+        if (!m) return;
+        var wanted = decodeURIComponent(m[1]).replace(/\+/g, ' ');
+        for (var j = 0; j < links.length; j++) {
+            if (tabText(links[j]) === wanted) {
+                try { links[j].click(); } catch(e) {}
                 return;
             }
         }
     }
-    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){setTimeout(openAdvanced,100);});
-    else setTimeout(openAdvanced,100);
+
+    if (document.readyState === 'loading')
+        document.addEventListener('DOMContentLoaded', function(){ setTimeout(bindTelemtTabs, 100); });
+    else
+        setTimeout(bindTelemtTabs, 100);
 })();
 </script>
 
