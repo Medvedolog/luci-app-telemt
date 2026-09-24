@@ -56,7 +56,7 @@ jobs:
             - name: luci-app-telemt
               build: mkpkg
               arch: noarch
-              version: 3.5.7-r1
+              version: 3.5.7-r2
               files: ./.ci-owfeed/root
               description: "LuCI WebUI for Telemt 3.5.7 WEB alpha test package"
               url: https://github.com/Medvedolog/luci-app-telemt
