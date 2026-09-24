@@ -55,6 +55,12 @@ jobs:
           grep -q 'cbi("telemt_web")' "$CONTROLLER"
           grep -q 'cbi("telemt_web")' "$CONTROLLER"
           grep -q 'WEB Proxy' "$WEB_MODEL"
+          grep -q 'entry({"admin", "services", "telemt", "web"}, cbi("telemt_web")).leaf = true' "$CONTROLLER"
+          if grep -q 'cbi("telemt_web"), _("WEB Proxy")' "$CONTROLLER"; then
+            echo 'ERROR: internal WEB route must stay hidden from LuCI child navigation' >&2
+            exit 1
+          fi
+          grep -q '3.5.7-r2 WEB alpha' usr/lib/lua/luci/model/cbi/telemt_legacy.lua
           grep -q 'telemt_adv=1' "$WEB_MODEL"
 
           # Fixed helper endpoints only; LuCI must never execute an arbitrary command.
