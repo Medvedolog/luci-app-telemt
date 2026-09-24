@@ -61,6 +61,14 @@ jobs:
             exit 1
           fi
           grep -q '3.5.7-r2 WEB alpha' usr/lib/lua/luci/model/cbi/telemt_legacy.lua
+          grep -q 's:tab("general", "General Settings")' usr/lib/lua/luci/model/cbi/telemt_legacy.lua
+          grep -q 's:tab("web_proxy", "WEB Proxy")' usr/lib/lua/luci/model/cbi/telemt_legacy.lua
+          grep -q 's:tab("advanced", "Advanced Tuning")' usr/lib/lua/luci/model/cbi/telemt_legacy.lua
+          grep -q 'telemt-main-tabs' "$WEB_MODEL"
+          if grep -q 'telemt-advanced-subtabs' "$WEB_MODEL"; then
+            echo 'ERROR: WEB Proxy must be a top-level app tab, not an Advanced subtab' >&2
+            exit 1
+          fi
           grep -q 'telemt_adv=1' "$WEB_MODEL"
 
           # Fixed helper endpoints only; LuCI must never execute an arbitrary command.
