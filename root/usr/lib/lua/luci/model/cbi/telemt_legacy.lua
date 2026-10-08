@@ -1,6 +1,6 @@
 -- -- ==============================================================================
 -- Telemt CBI Model (Configuration Binding Interface)
--- Version: 3.5.8-r1 WEB alpha
+-- Version: 3.5.14-r1 WEB RC candidate
 -- Changes from 3.3.31:
 --   - metrics_listen_addr / api_listen_addr (external metrics/API bind, default loopback)
 --   - client_mss (3.4.18) global TCP MSS clamp in [server]
@@ -539,7 +539,24 @@ if bin_path ~= "" then
 end
 
 m = Map("telemt", "Telegram Proxy (MTProto)",
-    [[Multi-user proxy server based on <a href="https://github.com/telemt/telemt" target="_blank" style="text-decoration:none; color:inherit; font-weight:bold; border-bottom: 1px dotted currentColor;">telemt</a>.<br><b>LuCI App Version: <a href="https://github.com/Medvedolog/luci-app-telemt" target="_blank" style="text-decoration:none; color:inherit; border-bottom: 1px dotted currentColor;">3.5.8-r1 WEB alpha</a></b> | <span style='color:#d35400; font-weight:bold;'>WEB requires telemt v3.5.8+</span>]])
+    [[Multi-user proxy server based on <a href="https://github.com/telemt/telemt" target="_blank" style="text-decoration:none; color:inherit; font-weight:bold; border-bottom: 1px dotted currentColor;">telemt</a>.<br><b>LuCI App Version: <a href="https://github.com/Medvedolog/luci-app-telemt" target="_blank" style="text-decoration:none; color:inherit; border-bottom: 1px dotted currentColor;">3.5.14-r1 WEB RC</a></b> | <span style='color:#d35400; font-weight:bold;'>WEB requires telemt v3.5.8+</span>]])
+-- Do not silently rewrite UCI from the LuCI GET request. The named 'general'
+-- section is what owns the tabbed configuration. If it is absent or has the
+-- wrong UCI type, only the separate Upstreams/Users sections can render (#25).
+-- The core package postinst restores a *missing* section on upgrade, leaving
+-- operator-supplied section types and values untouched.
+local general_cfg_type = uci_cursor:get("telemt", "general")
+local general_cfg_warning = ""
+if general_cfg_type ~= "telemt" then
+    local reason = general_cfg_type == nil and "missing" or "of the wrong UCI type"
+    general_cfg_warning = '<div class="alert alert-danger" role="alert" style="padding:12px;margin:12px 0;border:2px solid #c33;">'
+        .. '<strong>Telemt configuration error:</strong> the required <code>telemt.general</code> section is '
+        .. reason .. '. This hides the General, Advanced and Diagnostics tabs. '
+        .. 'Inspect <code>uci -q show telemt.general</code> over SSH; back up <code>/etc/config/telemt</code> '
+        .. 'before repairing the UCI config. Upgrading the core package repairs a missing section '
+        .. 'without overwriting existing user settings.</div>'
+end
+
 m.on_commit = function(self)
     sys.call(
         "logger -t telemt 'WebUI: Config saved. Dumping stats before procd reload...'; /etc/init.d/telemt run_save_stats 2>/dev/null")
@@ -2570,6 +2587,6 @@ function _telemtTryBootstrap() {
     }
 })();
 </script>
-]] .. (m.description or "")
+]] .. general_cfg_warning .. (m.description or "")
 
 return m
