@@ -2,6 +2,14 @@
 
 Версия пакета / package version: `X.Y.Z-rN` (`X.Y.Z` — версия LuCI-приложения, совпадает с версией ядра `telemt`, которое оно поддерживает; `rN` — ревизия упаковки).
 
+## 3.5.14-r1 — RC preparation (unreleased, 2026-10-08)
+
+- Align package version and WEB UI description with upstream Telemt **3.5.14**.
+- When the named `telemt.general` UCI section is missing or malformed, display a clear configuration diagnostic rather than silently presenting only the Upstreams/Users tables (issue #25 candidate cause). Do not mutate UCI merely by opening LuCI.
+- The matching core package restores a missing `general` section on upgrade while preserving all existing options. A wrong-type section is reported for manual review.
+- No changes to the router policy for service shutdown or hot reload.
+
+
 ## Unreleased
 
 **RU**
