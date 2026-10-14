@@ -1,0 +1,29 @@
+name: Bundle signed core into RC release
+# Run only when the explicit, reviewed request appears on main.
+on:
+  push:
+    branches: [main]
+    paths: ['.github/rc-bundle-request.json']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate matching public RC releases and dispatch verified bundle
+        run: |
+          set -euo pipefail
+          test "$(jq -r '.tag' .github/rc-bundle-request.json)" = '3.5.14-rc1'
+          for repo in Medvedolog/telemt_owrt Medvedolog/luci-app-telemt; do
+            gh release view 3.5.14-rc1 --repo "$repo" --json isPrerelease,isDraft |
+              jq -e '.isPrerelease == true and .isDraft == false' >/dev/null
+          done
+          gh workflow run bundle-core.yml --repo "$GITHUB_REPOSITORY" \
+            --ref main -f tag=3.5.14-rc1

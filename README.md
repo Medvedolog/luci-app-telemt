@@ -3,7 +3,30 @@
 <br>
 
 <blockquote>
-<p><b>⚠️ Требуются тестеры / Testers wanted</b></p>
+<p><b>🧪 Telemt 3.5.14 RC1 — подписанный Pre-release / signed release candidate</b></p>
+<p>
+<strong>Русский.</strong> Опубликована тестовая версия <code>3.5.14-r1</code> для OpenWrt 24.10 (IPK) и 25.12 (APK).
+Пакеты подписаны, но <b>это не стабильный выпуск</b>. Автоматические испытания обновления UCI, запуска демона, генерации TOML и совместной работы Core + LuCI пройдены. Подключения Direct/ME/WEB на физических роутерах ещё требуют проверки.
+<br>
+<a href="https://github.com/Medvedolog/telemt_owrt/releases/tag/3.5.14-rc1"><b>Скачать ядро 3.5.14 RC1</b></a> ·
+<a href="https://github.com/Medvedolog/luci-app-telemt/releases/tag/3.5.14-rc1"><b>Скачать LuCI 3.5.14 RC1</b></a> ·
+<a href="https://github.com/Medvedolog/luci-app-telemt/issues/29">Отправить отчёт о тестировании</a>.
+<br>
+Перед обновлением сохраните <code>/etc/config/telemt</code>. Не публикуйте пользовательские секреты или полные конфигурации.
+</p>
+<p>
+<strong>English.</strong> Signed Telemt <code>3.5.14-r1</code> test packages for OpenWrt 24.10/IPK and 25.12/APK are now available as GitHub <b>Pre-releases, not Stable</b>.
+CI covers package installation, UCI upgrades, real runtime TOML/procd and paired Core + LuCI pages. Physical router acceptance and real Telegram Direct/ME/WEB connectivity are still pending.
+<br>
+<a href="https://github.com/Medvedolog/telemt_owrt/releases/tag/3.5.14-rc1">Core RC1 release</a> ·
+<a href="https://github.com/Medvedolog/luci-app-telemt/releases/tag/3.5.14-rc1">LuCI RC1 release</a> ·
+<a href="https://github.com/Medvedolog/luci-app-telemt/issues/29">Hardware test report</a>.
+Back up <code>/etc/config/telemt</code> and redact any secrets before reporting.
+</p>
+</blockquote>
+
+<blockquote>
+<p><b>Предыдущая тестовая версия 3.5.8 / Previous test build 3.5.8</b></p>
 <p>
 Релиз <b>3.5.8</b> (включая WEB Proxy) прошёл автоматическую проверку сборки и установки в эмуляции OpenWrt, но <b>на реальных роутерах ещё не тестировался</b>. WEB по умолчанию выключен; основной риск — упаковка и обновление поверх старой версии.
 Если у вас есть роутер, установите пакет и сообщите результат в <a href="../../issues/new?template=test-report.md">Issues («Test report»)</a>: модель, архитектура, версия OpenWrt, версии пакетов, WEB вкл/выкл, что сработало и что нет, вывод <code>logread | grep telemt</code>.

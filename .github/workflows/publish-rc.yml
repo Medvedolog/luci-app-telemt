@@ -1,0 +1,152 @@
+name: Publish 3.5.14 RC (signed prerelease)
+# One-shot gate: a request commit on main publishes only verified RC artifacts.
+# Never uses the stable owfeed reusable publisher, which changes "latest".
+on:
+  push:
+    branches: [main]
+    paths: ['.github/rc-publish-request.json']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: publish-telemt-rc-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify explicit RC request and exact successful CI
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          request=.github/rc-publish-request.json
+          test -s "$request"
+          tag="$(jq -r '.tag' "$request")"
+          sha="$(jq -r '.source_sha' "$request")"
+          run="$(jq -r '.ci_run_id' "$request")"
+          test "$tag" = '3.5.14-rc1'
+          echo "$sha" | grep -Eq '^[0-9a-f]{40}$'
+          echo "$run" | grep -Eq '^[0-9]{8,}$'
+          head_sha="$(gh api 'repos/Medvedolog/luci-app-telemt/git/ref/heads/dev/telemt-luci-3.5.14-rc-prep' --jq '.object.sha')"
+          test "$head_sha" = "$sha" || {
+            echo 'RC branch advanced; request must pin current tested head' >&2
+            exit 1
+          }
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" |
+            jq -e --arg sha "$sha" '.head_sha == $sha and .conclusion == "success" and .event == "pull_request"' >/dev/null
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run/jobs?per_page=100" > "$RUNNER_TEMP/jobs.json"
+          required=(
+            "Sources parse"
+            "Build native OpenWrt packages"
+            "Install on real OpenWrt userspace"
+          )
+          for name in "${required[@]}"; do
+            jq -e --arg name "$name" '[.jobs[] | select(.name == $name and .conclusion == "success")] | length == 1' "$RUNNER_TEMP/jobs.json" >/dev/null ||
+              { echo "Required CI job missing/failed: $name" >&2; exit 1; }
+          done
+          gh release view "$tag" --repo Medvedolog/telemt_owrt --json isPrerelease,isDraft |
+            jq -e '.isPrerelease == true and .isDraft == false' >/dev/null ||
+            { echo 'Matching signed core pre-release is not yet public' >&2; exit 1; }
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" >/dev/null 2>&1; then
+            echo 'RC tag already exists; refusing to overwrite' >&2
+            exit 1
+          fi
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'RC Release already exists; refusing duplicate' >&2
+            exit 1
+          fi
+          test -s 'keys/telemt-luci-release.pub'
+          echo "RC_TAG=$tag" >> "$GITHUB_ENV"
+          echo "RC_SHA=$sha" >> "$GITHUB_ENV"
+          echo "RC_RUN_ID=$run" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/telemt-luci-3.5.14-rc-prep
+          path: rc-src
+          persist-credentials: false
+
+      - name: Download CI-built packages, not rebuilt release bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git -C rc-src rev-parse HEAD)" = "$RC_SHA"
+          test "$(cat rc-src/version.txt)" = '3.5.14'
+          mkdir -p rc-src/dist
+          gh run download "$RC_RUN_ID" --repo "$GITHUB_REPOSITORY" --name owfeed-packages --dir rc-src/dist
+          test "$(cat rc-src/dist/VERSION)" = '3.5.14-r1'
+          test "$(find rc-src/dist -type f \( -name '*.apk' -o -name '*.ipk' \) | wc -l)" -eq 2
+
+      - uses: owfeed/owfeed/setup@v0.5.1
+        with:
+          version: v0.5.1
+
+      - name: Sign, generate manifest and verify all release assets
+        working-directory: rc-src
+        env:
+          OWFEED_SIGN_KEY: ${{ secrets.TELEMT_LUCI_SIGN_KEY }}
+          OWFEED_RELEASE_KEY: ${{ secrets.TELEMT_LUCI_USIGN_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "${OWFEED_SIGN_KEY:-}"
+          test -n "${OWFEED_RELEASE_KEY:-}"
+          owfeed sign
+          owfeed release --repo "$GITHUB_REPOSITORY" --tag "$RC_TAG"
+          for f in dist/*/*.apk dist/*/*.ipk dist/*/*.sig; do
+            [ -e "$f" ] || continue
+            mv "$f" dist/
+          done
+          n=0
+          for p in dist/*.apk dist/*.ipk; do
+            [ -e "$p" ] || continue
+            test -s "$p.sig"
+            owfeed verify-artifact --key keys/telemt-luci-release.pub --signature "$p.sig" "$p"
+            n=$((n+1))
+          done
+          test "$n" -eq 2
+          test -s dist/manifest.txt.sig
+          owfeed verify-artifact --key keys/telemt-luci-release.pub --signature dist/manifest.txt.sig dist/manifest.txt
+
+      - name: Publish as Pre-release, without moving Latest
+        working-directory: rc-src
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/rc-notes.md" <<'NOTES'
+          ## Telemt 3.5.14 RC1 — for testers only
+
+          This is a signed OpenWrt release candidate, **not a stable build**.
+          Packages: OpenWrt 24.10 (IPK), 25.12 (APK).
+          Telemt 3.5.14 / package version 3.5.14-r1.
+
+          Automated checks include package install and UCI upgrade preservation,
+          runtime TOML/procd Direct+ME+WEB checks, and paired Core/LuCI rendering.
+          **Physical routers and actual Telegram Direct/ME/WEB connectivity remain to be tested.**
+          Back up /etc/config/telemt before installing. Do not expose user secrets in reports.
+
+          Test reports: https://github.com/Medvedolog/luci-app-telemt/issues/29
+          NOTES
+          gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f ref="refs/tags/$RC_TAG" -f sha="$RC_SHA" >/dev/null
+          assets=(dist/*.apk dist/*.ipk dist/*.sig dist/manifest.txt)
+          gh release create "$RC_TAG" "${assets[@]}" \
+            --repo "$GITHUB_REPOSITORY" --verify-tag --draft --prerelease --latest=false \
+            --title "Telemt 3.5.14 RC1 (OpenWrt test build)" \
+            --notes-file "$RUNNER_TEMP/rc-notes.md"
+          gh release edit "$RC_TAG" --repo "$GITHUB_REPOSITORY" \
+            --draft=false --prerelease --latest=false
+          gh release view "$RC_TAG" --repo "$GITHUB_REPOSITORY" \
+            --json isPrerelease,isDraft |
+            jq -e '.isPrerelease == true and .isDraft == false'
+          # Older gh versions do not expose "isLatest" in release view JSON.
+          latest_tag="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq '.tag_name' 2>/dev/null || true)"
+          test "$latest_tag" != "$RC_TAG"
