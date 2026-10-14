@@ -145,4 +145,6 @@ sh -n tools/bundle-core.sh
 [ "$(tail -n1 keys/telemt-core-release.pub | base64 -d | od -An -tx1 -j2 -N8 | tr -d ' \n')" = "$(sed -n 's/^CORE_KEY_ID="\(.*\)"/\1/p' tools/bundle-core.sh)" ] || fail 'keys/telemt-core-release.pub does not match CORE_KEY_ID in tools/bundle-core.sh'
 grep -q 'bundle-core' .github/workflows/ci.yml && [ -f .github/workflows/bundle-core.yml ]
 
+python3 tools/test-regressions.py
+
 echo 'source contracts ok'
