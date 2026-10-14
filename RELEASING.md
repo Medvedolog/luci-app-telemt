@@ -68,7 +68,7 @@ manifest.txt
 - файлы загружаются **без изменений**, с оригинальными `.sig`; манифест ядра лежит как `core-manifest.txt` (+ `.sig`), чтобы не затирать `manifest.txt` LuCI. Через owfeed-релиз LuCI ядро не пропускается: иначе оно было бы подписано ключом LuCI и попало бы в его `manifest.txt`. Заявка в owfeed-packages от этого не меняется;
 - если релиза ядра с такой базовой версией ещё нет, job ничего не делает (в логе `notice`). **Поэтому релизим по очереди: сначала ядро, потом LuCI.**
 
-Проверка без загрузки: `sh tools/bundle-core.sh 3.5.8` (нужны `owfeed`, `jq`, `curl`). Если публичный ключ ядра когда-либо будет заменён, обновите `keys/telemt-core-release.pub` и `CORE_KEY_ID` в `tools/bundle-core.sh`; `tools/check-sources.sh` следит, чтобы они совпадали. Для уже вышедшего релиза бандл можно догрузить вручную: `UPLOAD=1 sh tools/bundle-core.sh 3.5.8`.
+Проверка без загрузки: `sh tools/bundle-core.sh 3.5.8` (нужны `owfeed`, `jq`, `curl`). Если публичный ключ ядра когда-либо будет заменён, обновите `keys/telemt-core-release.pub` и `CORE_KEY_ID` в `tools/bundle-core.sh`; `tools/check-sources.sh` следит, чтобы они совпадали. Для уже вышедшего релиза бандл можно догрузить: GitHub → Actions → **Attach core packages** → Run workflow, в поле `tag` указать тег релиза (например `3.5.8`); либо локально `UPLOAD=1 sh tools/bundle-core.sh 3.5.8`.
 
 ## Добавление в owfeed-packages
 
