@@ -145,5 +145,8 @@ jobs:
           gh release edit "$RC_TAG" --repo "$GITHUB_REPOSITORY" \
             --draft=false --prerelease --latest=false
           gh release view "$RC_TAG" --repo "$GITHUB_REPOSITORY" \
-            --json isPrerelease,isDraft,isLatest |
-            jq -e '.isPrerelease == true and .isDraft == false and .isLatest == false'
+            --json isPrerelease,isDraft |
+            jq -e '.isPrerelease == true and .isDraft == false'
+          # Older gh versions do not expose "isLatest" in release view JSON.
+          latest_tag="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq '.tag_name' 2>/dev/null || true)"
+          test "$latest_tag" != "$RC_TAG"
