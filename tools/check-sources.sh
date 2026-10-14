@@ -47,7 +47,10 @@ grep -q 'cbi("telemt_web")' "$CONTROLLER"
 grep -q 'WEB Proxy' "$WEB_MODEL"
 grep -q 'entry({"admin", "services", "telemt", "web"}, cbi("telemt_web")).leaf = true' "$CONTROLLER"
 ! grep -q 'cbi("telemt_web"), _("WEB Proxy")' "$CONTROLLER" || fail 'internal WEB route must stay hidden from LuCI child navigation'
-grep -q '3.5.8-r1 WEB alpha' "$USERS_LEGACY"
+grep -q '3.5.14-r1 WEB RC' "$USERS_LEGACY"
+grep -q 'local general_cfg_type = uci_cursor:get("telemt", "general")' "$USERS_LEGACY"
+grep -q 'general_cfg_warning' "$USERS_LEGACY"
+grep -q 'uci -q show telemt.general' "$USERS_LEGACY"
 grep -q 'debug_sideband = web:taboption("settings", Flag, "debug_sideband"' "$WEB_MODEL"
 grep -q 'debug_capture = web:taboption("settings", Flag, "debug_capture_lifecycle"' "$WEB_MODEL"
 grep -q 'debug_sideband.default = debug_sideband.disabled' "$WEB_MODEL"
@@ -141,5 +144,7 @@ sh -n tools/bundle-core.sh
 [ -s keys/telemt-core-release.pub ]
 [ "$(tail -n1 keys/telemt-core-release.pub | base64 -d | od -An -tx1 -j2 -N8 | tr -d ' \n')" = "$(sed -n 's/^CORE_KEY_ID="\(.*\)"/\1/p' tools/bundle-core.sh)" ] || fail 'keys/telemt-core-release.pub does not match CORE_KEY_ID in tools/bundle-core.sh'
 grep -q 'bundle-core' .github/workflows/ci.yml && [ -f .github/workflows/bundle-core.yml ]
+
+python3 tools/test-regressions.py
 
 echo 'source contracts ok'
