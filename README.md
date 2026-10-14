@@ -3,6 +3,27 @@
 <br>
 
 <blockquote>
+<p><b>🧪 Telemt 3.5.14 RC — публичное тестирование / Public release candidate</b></p>
+<p>
+<strong>Русский.</strong> Подготовлена версия <code>3.5.14-r1</code> в тестовой ветке, но <b>стабильного релиза 3.5.14 пока нет</b>.
+Проверены исходники, сборка/установка IPK и APK, миграция UCI и совместимость ядра с LuCI в OpenWrt CI.
+Это <b>не подтверждает</b> работоспособность всех режимов на физических роутерах.
+<a href="https://github.com/Medvedolog/luci-app-telemt/pull/26">Открыть Draft PR и тестовую ветку</a> ·
+<a href="https://github.com/Medvedolog/luci-app-telemt/actions/runs/38534389972">Последний подтверждённый успешный CI</a> ·
+<a href="https://github.com/Medvedolog/luci-app-telemt/issues/29">Аппаратные испытания / test report</a>.
+Пакеты из GitHub Actions — <b>тестовые артефакты, не подписанный Release</b>; для скачивания может потребоваться вход в GitHub.
+Не устанавливайте их на основной маршрутизатор без резервной копии <code>/etc/config/telemt</code>.
+</p>
+<p>
+<strong>English.</strong> Telemt <code>3.5.14-r1</code> is available for testing on the development branch, <b>not as a stable GitHub Release</b>.
+OpenWrt CI has passed source, package, UCI-upgrade and paired Core + LuCI checks; physical-router connectivity remains unverified.
+See the <a href="https://github.com/Medvedolog/luci-app-telemt/pull/26">Draft PR</a>, <a href="https://github.com/Medvedolog/luci-app-telemt/actions/runs/38534389972">last confirmed green CI</a>
+and <a href="https://github.com/Medvedolog/luci-app-telemt/issues/29">hardware acceptance issue</a>.
+Action artifacts are experimental, not signed release packages; back up your UCI configuration before testing.
+</p>
+</blockquote>
+
+<blockquote>
 <p><b>⚠️ Требуются тестеры / Testers wanted</b></p>
 <p>
 Релиз <b>3.5.8</b> (включая WEB Proxy) прошёл автоматическую проверку сборки и установки в эмуляции OpenWrt, но <b>на реальных роутерах ещё не тестировался</b>. WEB по умолчанию выключен; основной риск — упаковка и обновление поверх старой версии.
