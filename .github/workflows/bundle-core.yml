@@ -1,0 +1,41 @@
+name: Attach core packages
+
+# Attach the telemt core packages of the same base version to a release of this
+# repository (see tools/bundle-core.sh). Called by ci.yml after a tag release, and
+# runnable by hand to backfill a release: Actions -> Attach core packages -> Run workflow.
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag of this repository to attach the core packages to
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag of this repository to attach the core packages to (e.g. 3.5.8)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  bundle:
+    name: Attach matching core packages
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: owfeed/owfeed/setup@v0.5.1
+        with:
+          version: v0.5.1
+      - name: Attach to ${{ inputs.tag }}
+        env:
+          TARGET_TAG: ${{ inputs.tag }}
+        run: UPLOAD=1 sh tools/bundle-core.sh "$TARGET_TAG"
