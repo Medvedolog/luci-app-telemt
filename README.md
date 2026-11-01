@@ -3,9 +3,9 @@
 <br>
 
 <blockquote>
-<p><b>🧪 Актуальный тестовый выпуск / Latest test release: Telemt 3.5.14 RC3 (<code>3.5.14-r3</code>)</b></p>
-<p>Подписанные IPK (OpenWrt 24.10) и APK (OpenWrt 25.12): <a href="https://github.com/Medvedolog/telemt_owrt/releases/tag/3.5.14-rc3">Core</a> · <a href="https://github.com/Medvedolog/luci-app-telemt/releases/tag/3.5.14-rc3">LuCI</a>. Не Stable: на физических роутерах испытания продолжаются. Перед обновлением сохраните <code>/etc/config/telemt</code>. Просим проверить Direct/ME/WEB, WEB v2-ссылки и QR, работу <code>base_path</code>, WAN/DNS recovery и WEB lifecycle. <a href="https://github.com/Medvedolog/luci-app-telemt/issues/29">Отчёты тестеров</a>; логи — без секретов.</p>
-<p><small>Signed RC3 packages (not Stable). Back up UCI and report hardware tests with secrets redacted. Full release history and changes: <a href="https://github.com/Medvedolog/telemt_owrt/releases">Core Releases</a> · <a href="https://github.com/Medvedolog/luci-app-telemt/releases">LuCI Releases</a>.</small></p>
+<p><b>🧪 Актуальный тестовый выпуск / Latest test release: Telemt 3.5.16 RC1 (<code>3.5.16-r1</code>)</b></p>
+<p>Подписанные <b>IPK для OpenWrt 24.10</b> и <b>APK для OpenWrt 25.12</b>: <a href="https://github.com/Medvedolog/telemt_owrt/releases/tag/3.5.16-rc1">Core</a> · <a href="https://github.com/Medvedolog/luci-app-telemt/releases/tag/3.5.16-rc1">LuCI</a>. <b>Pre-release, не Stable.</b> Обновлён upstream-движок (ME, WEB, SOCKS и relay); UCI остаётся источником конфигурации, расширенные WEB-функции не включаются по умолчанию. Перед установкой сохраните <code>/etc/config/telemt</code> и возможность отката. Проверяйте Direct/ME/WEB, полный restart, WAN/DNS recovery, CPU/RAM и сохранность пользователей/квот на реальных роутерах.</p>
+<p><small>Signed RC1 packages, pending real-router acceptance. Configuration: UCI → generated TOML → procd. <a href="https://github.com/Medvedolog/luci-app-telemt/issues/29">Отчёты тестеров / Test reports</a> (без секретов). История изменений: <a href="https://github.com/Medvedolog/telemt_owrt/releases">Core Releases</a> · <a href="https://github.com/Medvedolog/luci-app-telemt/releases">LuCI Releases</a>.</small></p>
 </blockquote>
 
 <table width="100%">
@@ -96,13 +96,13 @@
 **Для OpenWrt 21.02 — 24.10 (через opkg):**
 ```bash
 opkg update
-opkg install luci-app-telemt_3.5.14-r3_all.ipk
+opkg install luci-app-telemt_3.5.16-r1_all.ipk
 ```
 
 **Для OpenWrt 25.xx и новее (через apk):**
 ```bash
 apk update
-apk add --allow-untrusted luci-app-telemt-3.5.14-r3.apk
+apk add --allow-untrusted luci-app-telemt-3.5.16-r1.apk
 ```
 
 <br>
