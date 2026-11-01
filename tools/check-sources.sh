@@ -151,4 +151,10 @@ grep -q 'bundle-core' .github/workflows/ci.yml && [ -f .github/workflows/bundle-
 grep -q 'decoy_fasttrack_mode' "$WEB_MODEL"
 grep -q 'http_connection_capacity_action' "$WEB_MODEL"
 grep -q 'me_reinit_max_concurrency' "$USERS_LEGACY"
+# WEB lifecycle controller must fence by the process-owned instance and restrict verbs.
+grep -q 'call("web_lifecycle")' "$CONTROLLER"
+grep -q 'function web_lifecycle()' "$CONTROLLER"
+grep -q 'runtime_instance=instance' "$CONTROLLER"
+grep -q 'action ~= "status" and action ~= "pause" and action ~= "drain" and action ~= "resume"' "$CONTROLLER"
+grep -q 'telemtWebLifecycle' "$WEB_MODEL"
 echo 'source contracts ok'
