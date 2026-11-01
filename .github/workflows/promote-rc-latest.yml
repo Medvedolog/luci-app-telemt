@@ -1,0 +1,78 @@
+name: Mark verified Telemt 3.5.16 RC1 Latest (TEST BUILD)
+on:
+  push:
+    branches: [main]
+    paths: ['.github/rc-latest-request.json']
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: telemt-promote-rc-latest-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify pinned RC, successful CI and signed public assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          request=.github/rc-latest-request.json
+          test -s "$request"
+          tag="$(jq -r '.tag' "$request")"
+          sha="$(jq -r '.source_sha' "$request")"
+          ci_run="$(jq -r '.ci_run_id' "$request")"
+          test "$tag" = '3.5.16-rc1'
+          echo "$sha" | grep -Eq '^[a-f0-9]{40}$'
+          echo "$ci_run" | grep -Eq '^[0-9]{8,}$'
+          actual_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq '.object.sha')"
+          test "$actual_sha" = "$sha"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$ci_run" |
+            jq -e --arg sha "$sha" '.head_sha == $sha and .event == "pull_request" and .conclusion == "success"' >/dev/null
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$ci_run/jobs?per_page=100" > "$RUNNER_TEMP/jobs.json"
+          required=(
+            "Sources parse"
+            "Build native OpenWrt packages"
+            "Install on real OpenWrt userspace"
+          )
+          for name in "${required[@]}"; do
+            jq -e --arg name "$name" '[.jobs[] | select(.name == $name and .conclusion == "success")] | length == 1' "$RUNNER_TEMP/jobs.json" >/dev/null
+          done
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" > "$RUNNER_TEMP/release.json"
+          jq -e '.draft == false and .prerelease == true and (.assets | all(.size > 0))' "$RUNNER_TEMP/release.json" >/dev/null
+          count="$(jq '[.assets[] | select((.name | endswith(".apk")) or (.name | endswith(".ipk")))] | length' "$RUNNER_TEMP/release.json")"
+          test "$count" -eq 2
+          jq -e '[.assets[].name] | (index("manifest.txt") != null) and (index("manifest.txt.sig") != null)' "$RUNNER_TEMP/release.json" >/dev/null
+          while IFS= read -r package; do
+            jq -e --arg signature "$package.sig" '[.assets[].name] | index($signature) != null' "$RUNNER_TEMP/release.json" >/dev/null
+          done < <(jq -r '.assets[] | select((.name | endswith(".apk")) or (.name | endswith(".ipk"))) | .name' "$RUNNER_TEMP/release.json")
+          echo "Validated RC1 tag, CI and all signed assets."
+
+      - name: Promote RC1 to Latest with explicit test-only warning
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="3.5.16-rc1"
+          id="$(jq -r '.id' "$RUNNER_TEMP/release.json")"
+          old_body="$(jq -r '.body // ""' "$RUNNER_TEMP/release.json")"
+          warning='⚠ TEST BUILD / ТЕСТОВЫЙ ВЫПУСК — НЕ СТАБИЛЬНАЯ ВЕРСИЯ.
+          GitHub Latest is used for discoverability only. This is still RC1;
+          physical-router acceptance is incomplete. Back up UCI and keep a rollback path.
+          Пометка Latest не означает завершения испытаний на реальных роутерах.'
+          jq -n --arg title 'Telemt 3.5.16 RC1 — TEST BUILD (Latest; NOT STABLE)' \
+            --arg body "$warning
+
+          $old_body" \
+            '{name:$title,body:$body,prerelease:false,make_latest:"true"}' > "$RUNNER_TEMP/promote.json"
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$id" \
+            --input "$RUNNER_TEMP/promote.json" > "$RUNNER_TEMP/updated.json"
+          jq -e '.tag_name == "3.5.16-rc1" and .prerelease == false and .draft == false' "$RUNNER_TEMP/updated.json" >/dev/null
+          latest="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq '.tag_name')"
+          test "$latest" = "$tag"
+          echo "Promoted $tag to Latest; retained RC1 TEST BUILD warning."
