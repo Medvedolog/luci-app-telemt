@@ -128,25 +128,23 @@ jobs:
           Packages: OpenWrt 24.10 (IPK), 25.12 (APK).
           Telemt 3.5.14 / package version 3.5.14-r3.
 
-          **Экспериментальная сборка — не устанавливайте на основной маршрутизатор.**
-          Новый параметр WEB vhost `base_path` опционален: пустое значение сохраняет
-          прежнее поведение. Для непустого пути используйте новую v2-ссылку,
-          напечатанную Telemt при запуске: прежний генератор ссылок и QR не подходит.
-          NGINX/HAProxy должен сохранять Host и полный путь без переписывания.
+          **Telemt 3.5.14 RC3 — TEST BUILD / ТЕСТОВЫЙ ВЫПУСК**
 
-          **Просьба к тестерам:** перед установкой сохраните /etc/config/telemt.
-          Проверьте установку/обновление Core + LuCI, сохранение пользователей,
-          Direct, ME и WEB, WEB root/base_path, WEB через NGINX/HAProxy,
-          перезапуск и остановку procd, переходы WAN down/up, работу DNS,
-          нагрузку CPU/RAM и восстановление соединений после reload.
-          Приложите модель роутера, архитектуру, версию OpenWrt и пакетов,
-          шаги воспроизведения и очищенный от секретов вывод logread -e telemt.
-          Не публикуйте токены, IP клиентов, пароли и пользовательские secret.
+          This signed pre-release is not stable and has not passed physical-router
+          acceptance. The RC3 LuCI implementation supports upstream WEB v2
+          links and QR for path-bound vhosts. Experimental WEB pause/drain/resume
+          operator controls are present; they use a process runtime_instance
+          fence and a loopback-only Control API. A curl executable is required.
 
-          This signed candidate is **not stable** and has not been accepted on
-          physical routers. Preserve WEB Host and full path through TLS termination.
-          Path-bound links require v2 output from Telemt startup. Test and report
-          Direct/ME/WEB, UCI upgrade, reload, WAN/DNS recovery and resource usage.
+          Перед установкой сохраните /etc/config/telemt и возможность отката.
+          Просим проверить Direct, ME, WEB (HTTPS/WebSocket), генерацию v1/v2
+          ссылок и QR, base_path с NGINX/HAProxy, runtime lifecycle pause,
+          drain (30 с), resume, восстановление после WAN/DNS failure, procd,
+          CPU/RAM и обновление с RC2 без потери пользователей.
+
+          Do not use a production router for initial tests. Report architecture,
+          OpenWrt version, Core/LuCI revisions, steps and sanitized logs. Never
+          disclose API credentials, Telegram secrets, client IPs or raw UCI.
 
           Test reports: https://github.com/Medvedolog/luci-app-telemt/issues/29
           NOTES
