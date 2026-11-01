@@ -34,7 +34,7 @@ packages:
     description: "LuCI WebUI for Telemt MTProxy: multi-user management, upstream cascades, WEB Proxy (vhosts, shared users, HAProxy/NGINX frontend helpers), live diagnostics and Telegram bot integration. Requires the telemt core package."
     # /etc/config/telemt is owned by the telemt core package, so the core is not a
     # hard dependency: this UI must stay installable when the core feed is unreachable.
-    depends: [libc, luci-base, luci-compat, qrencode, ca-bundle]
+    depends: [libc, luci-base, luci-compat, qrencode, ca-bundle, curl]
     license: GPL-2.0-or-later
     url: https://github.com/Medvedolog/luci-app-telemt
     maintainer: "Medvedolog <Medvedolog@github.com>"
