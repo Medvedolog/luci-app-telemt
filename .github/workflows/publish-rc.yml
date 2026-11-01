@@ -1,4 +1,4 @@
-name: Publish 3.5.14 RC (signed prerelease)
+name: Publish 3.5.16 RC1 (signed prerelease)
 # One-shot gate: a request commit on main publishes only verified RC artifacts.
 # Never uses the stable owfeed reusable publisher, which changes "latest".
 on:
@@ -31,10 +31,10 @@ jobs:
           tag="$(jq -r '.tag' "$request")"
           sha="$(jq -r '.source_sha' "$request")"
           run="$(jq -r '.ci_run_id' "$request")"
-          test "$tag" = '3.5.14-rc3'
+          test "$tag" = '3.5.16-rc1'
           echo "$sha" | grep -Eq '^[0-9a-f]{40}$'
           echo "$run" | grep -Eq '^[0-9]{8,}$'
-          head_sha="$(gh api 'repos/Medvedolog/luci-app-telemt/git/ref/heads/release/telemt-3.5.14-rc3-full' --jq '.object.sha')"
+          head_sha="$(gh api 'repos/Medvedolog/luci-app-telemt/git/ref/heads/release/telemt-3.5.16-rc1' --jq '.object.sha')"
           test "$head_sha" = "$sha" || {
             echo 'RC branch advanced; request must pin current tested head' >&2
             exit 1
@@ -69,7 +69,7 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          ref: release/telemt-3.5.14-rc3-full
+          ref: release/telemt-3.5.16-rc1
           path: rc-src
           persist-credentials: false
 
@@ -79,10 +79,10 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git -C rc-src rev-parse HEAD)" = "$RC_SHA"
-          test "$(cat rc-src/version.txt)" = '3.5.14'
+          test "$(cat rc-src/version.txt)" = '3.5.16'
           mkdir -p rc-src/dist
           gh run download "$RC_RUN_ID" --repo "$GITHUB_REPOSITORY" --name owfeed-packages --dir rc-src/dist
-          test "$(cat rc-src/dist/VERSION)" = '3.5.14-r3'
+          test "$(cat rc-src/dist/VERSION)" = '3.5.16-r1'
           test "$(find rc-src/dist -type f \( -name '*.apk' -o -name '*.ipk' \) | wc -l)" -eq 2
 
       - uses: owfeed/owfeed/setup@v0.5.1
@@ -122,30 +122,32 @@ jobs:
         run: |
           set -euo pipefail
           cat > "$RUNNER_TEMP/rc-notes.md" <<'NOTES'
-          ## Telemt 3.5.14 RC3 — for testers only
+          ## Telemt 3.5.16 RC1 — OpenWrt hardware test candidate
 
-          This is a signed OpenWrt release candidate, **not a stable build**.
-          Packages: OpenWrt 24.10 (IPK), 25.12 (APK).
-          Telemt 3.5.14 / package version 3.5.14-r3.
+          **Not stable.** Signed test packages for OpenWrt 24.10/IPK and
+          25.12/APK. Upstream `telemt/telemt` **3.5.16**; package revision
+          `3.5.16-r1`. Source is pinned to the verified upstream tag.
 
-          **Telemt 3.5.14 RC3 — TEST BUILD / ТЕСТОВЫЙ ВЫПУСК**
+          **What changed:** upstream 3.5.15/3.5.16 flow/ME/SOCKS/WEB fixes,
+          including relay flush and retry behaviour; existing OpenWrt UCI,
+          WEB v2 links, and LuCI lifecycle support are retained.
+          No wildcard hosts, multi-domain groups, periodic quotas or WEB
+          retry jitter are automatically enabled.
 
-          This signed pre-release is not stable and has not passed physical-router
-          acceptance. The RC3 LuCI implementation supports upstream WEB v2
-          links and QR for path-bound vhosts. Experimental WEB pause/drain/resume
-          operator controls are present; they use a process runtime_instance
-          fence and a loopback-only Control API. A curl executable is required.
+          **Configuration policy:** `/etc/config/telemt` (UCI) remains the
+          sole persistent source of settings; generated TOML is disposable.
+          Apply changes using procd/full restart; API mutations are not used
+          to override UCI persistently.
 
-          Перед установкой сохраните /etc/config/telemt и возможность отката.
-          Просим проверить Direct, ME, WEB (HTTPS/WebSocket), генерацию v1/v2
-          ссылок и QR, base_path с NGINX/HAProxy, runtime lifecycle pause,
-          drain (30 с), resume, восстановление после WAN/DNS failure, procd,
-          CPU/RAM и обновление с RC2 без потери пользователей.
+          **Тестерам:** сохраните конфигурацию и возможность отката на RC3.
+          Проверьте Direct / ME / WEB, SOCKS, TLS termination, base_path,
+          WEB v2-ссылки и QR, полный restart, смену WAN/DNS, сохранность
+          пользователей и квот, CPU/RAM на слабом роутере. При переходе
+          с RC3 особое внимание уделите ME после простоя и WEB-повторам.
 
-          Do not use a production router for initial tests. Report architecture,
-          OpenWrt version, Core/LuCI revisions, steps and sanitized logs. Never
-          disclose API credentials, Telegram secrets, client IPs or raw UCI.
-
+          Record OpenWrt version, architecture, Core/LuCI package versions,
+          test steps, CPU/RAM and sanitized `logread -e telemt`.
+          Never share secrets, API tokens, full UCI, or client IPs.
           Test reports: https://github.com/Medvedolog/luci-app-telemt/issues/29
           NOTES
           gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" \
@@ -153,7 +155,7 @@ jobs:
           assets=(dist/*.apk dist/*.ipk dist/*.sig dist/manifest.txt)
           gh release create "$RC_TAG" "${assets[@]}" \
             --repo "$GITHUB_REPOSITORY" --verify-tag --draft --prerelease --latest=false \
-            --title "Telemt 3.5.14 RC3 (OpenWrt test build)" \
+            --title "Telemt 3.5.16 RC1 (OpenWrt test build)" \
             --notes-file "$RUNNER_TEMP/rc-notes.md"
           gh release edit "$RC_TAG" --repo "$GITHUB_REPOSITORY" \
             --draft=false --prerelease --latest=false
