@@ -209,7 +209,8 @@ function web_lifecycle()
         return response(200, payload or "{}")
     end
     local d = type(status.data) == "table" and status.data or status
-    local instance = d.runtime_instance
+    local rt = type(d.runtime) == "table" and d.runtime or {}
+    local instance = rt.runtime_instance
     if type(instance) ~= "string" or not instance:match("^[0-9a-f]+$") or #instance ~= 32 then
         return response(409, "Runtime identity unavailable; refusing lifecycle action")
     end
