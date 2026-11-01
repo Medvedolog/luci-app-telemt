@@ -35,6 +35,7 @@ jq -e 'has("admin/services/telemt")' "$MENU" >/dev/null
 jq -e 'has("admin/services/telemt/web") | not' "$MENU" >/dev/null
 
 WEB_MODEL=root/usr/lib/lua/luci/model/cbi/telemt_web.lua
+WEB_LINK=root/usr/lib/lua/luci/model/telemt_web_link.lua
 USERS_WRAPPER=root/usr/lib/lua/luci/model/cbi/telemt.lua
 USERS_LEGACY=root/usr/lib/lua/luci/model/cbi/telemt_legacy.lua
 USERS_WEB=root/usr/lib/lua/luci/model/cbi/telemt_users_web.lua
@@ -45,6 +46,10 @@ fail() { echo "ERROR: $*" >&2; exit 1; }
 for f in "$WEB_MODEL" "$USERS_WRAPPER" "$USERS_LEGACY" "$USERS_WEB"; do [ -s "$f" ] || fail "empty or missing: $f"; done
 grep -q 'cbi("telemt_web")' "$CONTROLLER"
 grep -q 'WEB Proxy' "$WEB_MODEL"
+grep -q 'web_link.format(host, base_path, secret, mode)' "$WEB_MODEL"
+grep -q 'web_link.format(host, binding.base_path, secret, mode)' "$USERS_WEB"
+grep -q 'telemt_web_link").format(host, base_path, secret, mode)' "$CONTROLLER"
+grep -q 'local marker = string.char(0x70)' "$WEB_LINK"
 grep -q 'entry({"admin", "services", "telemt", "web"}, cbi("telemt_web")).leaf = true' "$CONTROLLER"
 ! grep -q 'cbi("telemt_web"), _("WEB Proxy")' "$CONTROLLER" || fail 'internal WEB route must stay hidden from LuCI child navigation'
 grep -q '3.5.8-r1 WEB alpha' "$USERS_LEGACY"
