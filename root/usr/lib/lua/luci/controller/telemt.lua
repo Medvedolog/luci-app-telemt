@@ -19,6 +19,7 @@ function index()
     -- Read-only QR endpoint. The browser supplies only a UCI profile section id;
     -- the tg://webproxy link itself is assembled server-side from shared UCI data.
     entry({"admin", "services", "telemt", "web_qr"}, call("web_qr")).leaf = true
+    entry({"admin", "services", "telemt", "web_lifecycle"}, call("web_lifecycle")).leaf = true
 end
 
 function web_frontend_action()
@@ -169,4 +170,63 @@ function web_qr()
     http.header("Pragma", "no-cache")
     http.prepare_content("image/png")
     http.write(png)
+end
+
+-- Fixed-action WEB lifecycle controller. The API process fence is always read
+-- immediately before the command; callers cannot provide runtime_instance.
+function web_lifecycle()
+    local http = require "luci.http"
+    local sys = require "luci.sys"
+    local uci = require("luci.model.uci").cursor()
+    local json = require "luci.jsonc"
+    local function response(code, text)
+        http.status(code)
+        http.header("Cache-Control", "no-store")
+        http.prepare_content("text/plain")
+        http.write(text .. "\\n")
+    end
+    if http.getenv("REQUEST_METHOD") ~= "POST" or
+       http.getenv("HTTP_X_REQUESTED_WITH") ~= "XMLHttpRequest" then
+        return response(403, "Authenticated XHR POST required")
+    end
+    local action = http.formvalue("action") or ""
+    if action ~= "status" and action ~= "pause" and action ~= "drain" and action ~= "resume" then
+        return response(400, "Invalid action")
+    end
+    if sys.call("command -v curl >/dev/null 2>&1") ~= 0 then
+        return response(503, "curl is required for WEB lifecycle controls")
+    end
+    local port = tostring(uci:get("telemt", "general", "api_port") or "9091")
+    if not port:match("^%d+$") or tonumber(port) < 1 or tonumber(port) > 65535 then
+        return response(409, "Invalid API port")
+    end
+    local origin = "http://127.0.0.1:" .. port
+    local status_raw = sys.exec("curl -fsS --max-time 4 " .. string.format("%q", origin .. "/v1/runtime/web/status") .. " 2>/dev/null")
+    local status = json.parse(status_raw or "")
+    if type(status) ~= "table" then return response(503, "WEB runtime status unavailable") end
+    if action == "status" then
+        local payload = json.stringify(status)
+        return response(200, payload or "{}")
+    end
+    local d = type(status.data) == "table" and status.data or status
+    local instance = d.runtime_instance
+    if type(instance) ~= "string" or not instance:match("^[0-9a-f]+$") or #instance ~= 32 then
+        return response(409, "Runtime identity unavailable; refusing lifecycle action")
+    end
+    if action == "drain" and http.formvalue("confirm") ~= "drain" then
+        return response(400, "Drain confirmation required")
+    end
+    local endpoint = origin .. "/v1/runtime/web/lifecycle/" .. action
+    local payload = json.stringify({runtime_instance=instance, timeout_secs=(action == "drain" and 30 or nil)})
+    if type(payload) ~= "string" then return response(500, "Could not encode request") end
+    local cmd = "curl -sS --max-time 8 -X POST -H 'Content-Type: application/json' --data-binary " ..
+        string.format("%q", payload) .. " " .. string.format("%q", endpoint) ..
+        " -w '\\nHTTP_STATUS:%{http_code}' 2>/dev/null"
+    local raw = sys.exec(cmd) or ""
+    local code = tonumber(raw:match("HTTP_STATUS:(%d+)%s*$")) or 0
+    raw = raw:gsub("\\nHTTP_STATUS:%d+%s*$", "")
+    if code < 200 or code >= 300 then
+        return response(409, "Telemt rejected " .. action .. " (HTTP " .. code .. "): " .. raw:sub(1, 512))
+    end
+    return response(200, raw:sub(1, 4000))
 end
