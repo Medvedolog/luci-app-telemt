@@ -7,6 +7,7 @@ local dsp = require "luci.dispatcher"
 local uci = require("luci.model.uci").cursor()
 
 local M = {}
+local web_link = require "luci.model.telemt_web_link"
 
 local function jsq(s)
     s = tostring(s or "")
@@ -43,8 +44,8 @@ local function build_web_data()
         local user_enabled = ud and tostring(ud.enabled or "1") ~= "0"
         local link = nil
 
-        if enabled and user_enabled and host and binding.base_path == "" and #secret == 32 and secret:match("^[0-9A-Fa-f]+$") and (mode == "plain" or mode == "dd") then
-            link = "tg://webproxy?server=" .. host .. "&secret=" .. (mode == "dd" and "dd" or "") .. secret:lower()
+        if enabled and user_enabled and host and #secret == 32 and secret:match("^[0-9A-Fa-f]+$") and (mode == "plain" or mode == "dd") then
+            link = web_link.format(host, binding.base_path, secret, mode)
         end
 
         list[#list + 1] = {
