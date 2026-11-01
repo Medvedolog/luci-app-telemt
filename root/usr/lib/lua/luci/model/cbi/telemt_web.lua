@@ -257,6 +257,23 @@ carrier_aggr.default = "conservative"
 carrier_aggr.rmempty = false
 carrier_aggr.description = _("Conservative is the default. Balanced and Aggressive are manual advanced choices.")
 
+-- Telemt 3.5.14: explicit WEB overload / decoy policy (upstream-safe defaults).
+fasttrack = web:taboption("settings", ListValue, "decoy_fasttrack_mode", _("Decoy fast-track"))
+fasttrack:value("off", _("Off (upstream default)"))
+fasttrack:value("shadow", _("Shadow (observe only)"))
+fasttrack:value("enforce", _("Enforce"))
+fasttrack.default = "off"
+fasttrack.rmempty = false
+fasttrack.description = _("Requires Telemt 3.5.14+. Enforce changes request classification; test on a non-production router.")
+
+capacity_action = web:taboption("settings", ListValue, "http_connection_capacity_action", _("HTTP capacity action"))
+capacity_action:value("drop", _("Drop (upstream default)"))
+capacity_action:value("wait", _("Wait"))
+capacity_action:value("respond", _("Respond"))
+capacity_action.default = "drop"
+capacity_action.rmempty = false
+capacity_action.description = _("Requires Telemt 3.5.14+. Controls overload behaviour. Keep Drop unless the workload has been measured.")
+
 -- [web.debug] (Telemt >= 3.5.8). Off by default; the core generator skips it
 -- (with a syslog note) when the installed binary is older than 3.5.8.
 debug_enabled = web:taboption("settings", Flag, "debug_enabled", _("WEB diagnostics"))
