@@ -3,54 +3,9 @@
 <br>
 
 <blockquote>
-<p><b>🧪 Telemt 3.5.14 RC3 — подписанный Pre-release / signed test release</b></p>
-<p>Core + LuCI версии <code>3.5.14-r3</code> для OpenWrt 24.10/IPK и 25.12/APK. Предусмотрены WEB v2-ссылки и QR с <code>base_path</code>, расширенная настройка WEB/ME и экспериментальное управление WEB <code>pause/drain/resume</code>. <b>RC3 опубликован как подписанный Pre-release, но пока не прошёл аппаратную приёмку; установка на основной маршрутизатор не рекомендуется.</b> Сохраните <code>/etc/config/telemt</code> и протестируйте Direct/ME/WEB, WAN/DNS recovery, обновление с RC2, поддержку TLS frontend и управление lifecycle.</p>
-<p>English: Signed RC3 IPK/APK packages are published as GitHub Pre-releases, not Stable. WEB v2 links, optional advanced tuning and experimental operator lifecycle controls require real-router acceptance. Back up UCI; avoid production installations. Report logs with secrets redacted.</p>
-<p><a href="https://github.com/Medvedolog/luci-app-telemt/issues/29">Отчёты тестеров / Test reports</a>.</p>
-<p><a href="https://github.com/Medvedolog/telemt_owrt/releases/tag/3.5.14-rc3"><b>Скачать Core RC3 / Core packages</b></a> · <a href="https://github.com/Medvedolog/luci-app-telemt/releases/tag/3.5.14-rc3"><b>Скачать LuCI RC3 / LuCI packages</b></a>.</p>
-</blockquote>
-
-<blockquote>
-<p><b>🧪 Telemt 3.5.14 RC2 — тестовый Pre-release / test release candidate</b></p>
-<p><strong>Русский.</strong> Представлен тестовый кандидат <code>3.5.14-r2</code> для OpenWrt 24.10 (IPK) и 25.12 (APK). <b>RC2 предназначен только для тестов; физические роутеры ещё не прошли приёмочные испытания.</b> Не устанавливайте сборки из произвольных CI-артефактов на основной роутер. Новое: опциональный <code>web.vhosts[].base_path</code> для WEB Proxy. Пустой путь сохраняет прежнее поведение. При непустом пути старые ссылки не работают: новый <code>tg://webproxy</code> необходимо получить из вывода Telemt после запуска; LuCI не создаёт поддельную ссылку старого формата. TLS-прокси должен передавать полный путь и исходный Host без переписывания.</p>
-<p><b>Просим тестеров:</b> сохранить <code>/etc/config/telemt</code>; отдельно проверить Direct, ME и WEB, смену WAN/DNS, корректность HTTPS/WebSocket, root и non-root <code>base_path</code>, обновление без потери пользователей, остановку и перезапуск через procd, а также сохранение существующих соединений при reload. Сообщите модель роутера, архитектуру, OpenWrt, установленные версии Core/LuCI, схему TLS-терминации, шаги воспроизведения и очищенный от секретов <code>logread -e telemt</code>. <a href="https://github.com/Medvedolog/luci-app-telemt/issues/29">Отчёты об испытаниях</a>.</p>
-<p><strong>English.</strong> RC2 package version <code>3.5.14-r2</code> is a test prerelease, <b>not hardware-validated or stable</b>. Back up UCI and test Direct/ME/WEB, WAN recovery, vhost path routing and upgrade behavior. Preserve Host and full URI path through TLS termination; regenerate path-bound links from Telemt startup output. Report results with redacted logs in <a href="https://github.com/Medvedolog/luci-app-telemt/issues/29">test issue #29</a>.</p>
-<p><a href="https://github.com/Medvedolog/telemt_owrt/releases/tag/3.5.14-rc2"><b>Core 3.5.14 RC2 — IPK/APK</b></a> · <a href="https://github.com/Medvedolog/luci-app-telemt/releases/tag/3.5.14-rc2"><b>LuCI 3.5.14 RC2 — IPK/APK</b></a> · <a href="https://github.com/Medvedolog/luci-app-telemt/issues/29">Сообщить об испытаниях / Test report</a>.</p>
-</blockquote>
-
-<blockquote>
-<p><b>🧪 Telemt 3.5.14 RC1 — подписанный Pre-release / signed release candidate</b></p>
-<p>
-<strong>Русский.</strong> Опубликована тестовая версия <code>3.5.14-r1</code> для OpenWrt 24.10 (IPK) и 25.12 (APK).
-Пакеты подписаны, но <b>это не стабильный выпуск</b>. Автоматические испытания обновления UCI, запуска демона, генерации TOML и совместной работы Core + LuCI пройдены. Подключения Direct/ME/WEB на физических роутерах ещё требуют проверки.
-<br>
-<a href="https://github.com/Medvedolog/telemt_owrt/releases/tag/3.5.14-rc1"><b>Скачать ядро 3.5.14 RC1</b></a> ·
-<a href="https://github.com/Medvedolog/luci-app-telemt/releases/tag/3.5.14-rc1"><b>Скачать LuCI 3.5.14 RC1</b></a> ·
-<a href="https://github.com/Medvedolog/luci-app-telemt/issues/29">Отправить отчёт о тестировании</a>.
-<br>
-Перед обновлением сохраните <code>/etc/config/telemt</code>. Не публикуйте пользовательские секреты или полные конфигурации.
-</p>
-<p>
-<strong>English.</strong> Signed Telemt <code>3.5.14-r1</code> test packages for OpenWrt 24.10/IPK and 25.12/APK are now available as GitHub <b>Pre-releases, not Stable</b>.
-CI covers package installation, UCI upgrades, real runtime TOML/procd and paired Core + LuCI pages. Physical router acceptance and real Telegram Direct/ME/WEB connectivity are still pending.
-<br>
-<a href="https://github.com/Medvedolog/telemt_owrt/releases/tag/3.5.14-rc1">Core RC1 release</a> ·
-<a href="https://github.com/Medvedolog/luci-app-telemt/releases/tag/3.5.14-rc1">LuCI RC1 release</a> ·
-<a href="https://github.com/Medvedolog/luci-app-telemt/issues/29">Hardware test report</a>.
-Back up <code>/etc/config/telemt</code> and redact any secrets before reporting.
-</p>
-</blockquote>
-
-<blockquote>
-<p><b>Предыдущая тестовая версия 3.5.8 / Previous test build 3.5.8</b></p>
-<p>
-Релиз <b>3.5.8</b> (включая WEB Proxy) прошёл автоматическую проверку сборки и установки в эмуляции OpenWrt, но <b>на реальных роутерах ещё не тестировался</b>. WEB по умолчанию выключен; основной риск — упаковка и обновление поверх старой версии.
-Если у вас есть роутер, установите пакет и сообщите результат в <a href="../../issues/new?template=test-report.md">Issues («Test report»)</a>: модель, архитектура, версия OpenWrt, версии пакетов, WEB вкл/выкл, что сработало и что нет, вывод <code>logread | grep telemt</code>.
-</p>
-<p>
-Release <b>3.5.8</b> (including the WEB Proxy) has passed automated build and install checks on emulated OpenWrt, but <b>has not been tested on real routers yet</b>. WEB is off by default; the main risk is packaging and upgrading over an older version.
-If you have a router, please install the package and report the result via <a href="../../issues/new?template=test-report.md">Issues ("Test report")</a>: model, architecture, OpenWrt version, package versions, WEB on/off, what worked and what did not, and the output of <code>logread | grep telemt</code>.
-</p>
+<p><b>🧪 Актуальный тестовый выпуск / Latest test release: Telemt 3.5.14 RC3 (<code>3.5.14-r3</code>)</b></p>
+<p>Подписанные IPK (OpenWrt 24.10) и APK (OpenWrt 25.12): <a href="https://github.com/Medvedolog/telemt_owrt/releases/tag/3.5.14-rc3">Core</a> · <a href="https://github.com/Medvedolog/luci-app-telemt/releases/tag/3.5.14-rc3">LuCI</a>. Не Stable: на физических роутерах испытания продолжаются. Перед обновлением сохраните <code>/etc/config/telemt</code>. Просим проверить Direct/ME/WEB, WEB v2-ссылки и QR, работу <code>base_path</code>, WAN/DNS recovery и WEB lifecycle. <a href="https://github.com/Medvedolog/luci-app-telemt/issues/29">Отчёты тестеров</a>; логи — без секретов.</p>
+<p><small>Signed RC3 packages (not Stable). Back up UCI and report hardware tests with secrets redacted. Full release history and changes: <a href="https://github.com/Medvedolog/telemt_owrt/releases">Core Releases</a> · <a href="https://github.com/Medvedolog/luci-app-telemt/releases">LuCI Releases</a>.</small></p>
 </blockquote>
 
 <table width="100%">
@@ -77,8 +32,8 @@ If you have a router, please install the package and report the result via <a hr
       <b>Требования:</b>
       <ul><li><b>Сеть:</b> Белый уличный статический или динамический IP адрес
         <li><b>ОС:</b> OpenWrt 21.02 — 25.xx (полная поддержка VDOM и APK-пакетов)</li>
-        <li><b>Зависимости:</b> <code>luci-base</code>, <code>luci-compat</code>, <code>ca-bundle</code>, <code>qrencode</code> (для QR-кодов)</li>
-        <li><b>Движок:</b> бинарный файл <code>telemt</code> <b>версии 3.5.8+</b> (<a href="https://github.com/Medvedolog/telemt_owrt/releases">Скачать telemt ядро</a>).</li>
+        <li><b>Зависимости:</b> <code>luci-base</code>, <code>luci-compat</code>, <code>ca-bundle</code>, <code>qrencode</code>, <code>curl</code> (для QR-кодов)</li>
+        <li><b>Движок:</b> бинарный файл <code>telemt</code> <b>версии 3.5.14 (RC3)</b> (<a href="https://github.com/Medvedolog/telemt_owrt/releases">Скачать telemt ядро</a>).</li>
       </ul>
       <b>Ключевые возможности:</b>
       <ul>
@@ -112,8 +67,8 @@ If you have a router, please install the package and report the result via <a hr
       <b>Requirements:</b>
       <ul>
         <li><b>OS:</b> OpenWrt 21.02 — 25.xx (full VDOM and APK package support)</li>
-        <li><b>Dependencies:</b> <code>luci-base</code>, <code>luci-compat</code>, <code>ca-bundle</code>, <code>qrencode</code> (for QR generation)</li>
-        <li><b>Engine:</b> <code>telemt</code> binary <b>version 3.5.8+</b> (<a href="https://github.com/Medvedolog/telemt_owrt/releases">Download core</a>).</li>
+        <li><b>Dependencies:</b> <code>luci-base</code>, <code>luci-compat</code>, <code>ca-bundle</code>, <code>qrencode</code>, <code>curl</code> (for QR generation)</li>
+        <li><b>Engine:</b> <code>telemt</code> binary <b>version 3.5.14 (RC3)</b> (<a href="https://github.com/Medvedolog/telemt_owrt/releases">Download core</a>).</li>
       </ul>
       <b>Key Features:</b>
       <ul>
@@ -141,138 +96,18 @@ If you have a router, please install the package and report the result via <a hr
 **Для OpenWrt 21.02 — 24.10 (через opkg):**
 ```bash
 opkg update
-opkg install luci-app-telemt_3.5.8-r1_all.ipk
+opkg install luci-app-telemt_3.5.14-r3_all.ipk
 ```
 
 **Для OpenWrt 25.xx и новее (через apk):**
 ```bash
 apk update
-apk add --allow-untrusted luci-app-telemt-3.5.8-r1.apk
+apk add --allow-untrusted luci-app-telemt-3.5.14-r3.apk
 ```
 
 <br>
 
-<h2 align="center">📋 История главных релизов / Changelog</h2>
-
-<table width="100%">
-  <tr>
-    <th width="15%">Версия</th>
-    <th width="85%">Изменения / Highlights</th>
-  </tr>
-  <tr>
-    <td valign="top"><b>3.5.8</b></td>
-    <td valign="top">
-      <b>WEB Proxy, диагностика <code>[web.debug]</code>, сборка через owfeed / WEB Proxy, <code>[web.debug]</code> diagnostics, owfeed packaging</b>
-      <ul>
-        <li><b>Requires telemt 3.5.8+.</b> Требуется ядро 3.5.8+: для 3.4.15–3.5.7 бейдж «Limited» (Classic/DD/FakeTLS работают, WEB — нет).</li>
-        <li><b>WEB Proxy:</b> диагностика WEB Bridge — «WEB diagnostics», «Diagnostic sideband», «Capture lifecycle events», всё выключено по умолчанию. / Opt-in WEB Bridge diagnostics, all off by default.</li>
-        <li><b>Packaging:</b> IPK (24.10) и APKv3 (25.12) через owfeed, подписанный релиз, nFPM удалён. / IPK (24.10) and APKv3 (25.12) built with owfeed, signed release, nFPM removed. См. / See <code>RELEASING.md</code>, <code>CHANGELOG.md</code>.</li>
-      </ul>
-    </td>
-  </tr>
-  <tr>
-    <td valign="top"><b>3.4.0</b><br><small>Release Candidate</small></td>
-    <td valign="top">
-      <b>Внешние метрики/API, client_mss, динамическая SNI-маска, честная диагностика связи и совместимость с AJAX-темами (кроме Argon, там ложно-отрицательный статус процесса telemt)</b><br>
-      <ul>
-        <li><b>Bind-адреса:</b> Новые <code>metrics_listen_addr</code> и <code>api_listen_addr</code> (дропдаун Loopback / All interfaces). Дефолт <code>127.0.0.1</code> — безопасное loopback-поведение сохранено при обновлении. Чинит «метрики недоступны снаружи»: раньше <code>metrics_listen</code> не эмитился вовсе и ядро падало на loopback, а API был жёстко на <code>0.0.0.0</code>.</li>
-        <li><b>client_mss (ядро 3.4.18):</b> Глобальный клампинг TCP MSS в <code>[server]</code>. Пресеты <code>tspu</code> / <code>extreme-low</code> / <code>2in8</code> для абонентов за TSPU/DPI. Пусто = дефолт ядра.</li>
-        <li><b>mask_dynamic (ядро 3.4.18):</b> Вынесен как Flag (дефолт ON, как в бинарнике). Делает явным изменение поведения: при пустом <code>mask_host</code> fallback-маскировка берёт SNI из ClientHello (только если он совпадает с настроенным TLS-доменом).</li>
-        <li><b>Честный статус апстримов:</b> Маршрут больше не светится зелёным «OK» только по флагу <code>healthy</code> ядра. Если транспорт жив, но ни один Telegram DC через него не достижим (все <code>dc[].latency_ema_ms</code> = null) — статус <b>DEGRADED</b> (жёлтый). Лечит ситуацию, когда <code>direct</code> показывался рабочим, хотя DC через него недоступны.</li>
-        <li><b>Честный TG Path:</b> Бейдж режима больше не показывает «Direct-DC», когда трафик реально идёт через прокси/VLESS. Теперь <b>«via SOCKS5/Mixed»</b>, если есть апстримы, и <b>«Direct»</b> — только при реально прямом egress без прокси.</li>
-        <li><b>Проба DC с роутера:</b> Кнопка <b>Probe DCs from router</b> в панели Telegram Path — реальный TCP-connect к DC1–DC5 прямо с роутера, в обход метрик ядра. Показывает наземную правду о достижимости DC (<code>N/5 reachable</code>), которую stats API дать не может.</li>
-        <li><b>Material themes fix:</b> Bootstrap фронтенда ждёт реального появления CBI-DOM (таймер + <code>MutationObserver</code>) вместо одноразового <code>DOMContentLoaded</code>. Лечит пропадание статуса/PID/RSS под AJAX-роутящими темами (бинарник работает, а UI показывает «не запущен»). На сток-темах нагрузка и поведение не изменились.</li>
-        <li><b>Fix #15 — ссылки и QR после ядра 3.4.19:</b> Ready-to-use link и QR перестали отображаться, хотя <code>/v1/users</code> отдавал ссылки корректно. Причина: UI строил ссылку на клиенте из UCI-поля, а не из API. Теперь ссылка берётся напрямую из авторитетного <code>/v1/users</code> (<code>links.tls/secure/classic</code>), с откатом на клиентскую сборку, если API недоступен. QR использует то же поле.</li>
-        <li><b>Observer target:</b> Основной <code>MutationObserver</code> теперь <code>#maincontent</code> → <code>.cbi-map</code> → <code>body</code> — не зависит от наличия <code>#maincontent</code>.</li>
-        <li><b>IPv4-only control-plane:</b> Валидатор <code>is_bind_addr</code> принимает только <code>127.0.0.1</code>/<code>0.0.0.0</code> (значения dropdown); мусор отбрасывается на loopback. <code>socket_addr()</code> с bracket-нотацией оставлен как защита на будущее.</li>
-        <li><b>Init.d (зеркально):</b> <code>metrics_listen</code> и <code>[server.api].listen</code> из UCI с валидацией. <code>client_mss</code> в <code>[server]</code>, <code>mask_dynamic</code> в <code>[censorship]</code>. <code>run_save_stats</code> сохранён на IPv4-loopback.</li>
-        <li><b>Requires telemt v3.4.15+</b> (client_mss появился в ядре 3.4.15; протестировано с 3.4.19).</li>
-        <li><b>Намеренно не добавлено:</b> SYN-лимитер ядра 3.4.18 — на OpenWrt с procd и активным <code>auto_fw</code> управление netfilter из бинарника конфликтует с правилами firewall; оставлен off по умолчанию ядра.</li>
-      </ul>
-    </td>
-  </tr>
-  <tr>
-    <td valign="top"><b>3.3.30</b><br><small>Release Candidate</small></td>
-    <td valign="top">
-      <b>Self-Stealth, Shadowsocks Upstream, API Integration & Stability Hardening</b><br>
-      <ul>
-        <li><b>Self-Stealth:</b> Новые поля <code>mask_port</code> и <code>mask_host</code> — перенаправление TLS-сканеров на локальный веб-сервер с настоящим сертификатом.</li>
-        <li><b>Shadowsocks upstream:</b> Новый тип в Protocol dropdown с полем SIP002 URL. Требует <code>use_middle_proxy = false</code>.</li>
-        <li><b>API Integration:</b> Per-DC latency в карточке Upstreams, IP-тултипы на вкладке Users, health-бейджи на вкладке Upstreams, Live connections + Users online + Unique IPs.</li>
-        <li><b>Formatted Beobachten:</b> Кнопка Scanner выводит категоризированный список DPI-сканеров с IP и счётчиками.</li>
-        <li><b>Cascade UX:</b> Заголовок показывает протокол (<code>socks5://addr</code>). Health badge виден при свёрнутой карточке. Динамический placeholder для Address.</li>
-        <li><b>PID Stability:</b> Null-byte safe <code>/proc/cmdline</code>, метрики (9092) без PID, frontend state machine (RUNNING / STARTING / PID UNKNOWN / STOPPED).</li>
-        <li><b>Polling fix:</b> <code>stopTimers()</code> убран из раннего выхода — polling не умирает при медленном рендере.</li>
-        <li><b>Lua safety:</b> Regex с <code>[[</code>/<code>]]</code> переписаны через <code>String.fromCharCode()</code>. ES2018 <code>/is</code> → совместимый <code>/i</code>.</li>
-        <li><b>Dark theme:</b> Заменены ~15 hardcoded серых цветов на <code>inherit</code> / <code>opacity</code>.</li>
-        <li><b>IPK packaging:</b> <code>owfeed.yml</code> собирает IPK/APK из <code>root/</code> (см. <code>RELEASING.md</code>); <code>/etc/config/telemt</code> принадлежит ядру. Postinst: fallback-конфиг + полная очистка кеша (21.x–25.x).</li>
-        <li><b>Init.d (зеркально):</b> <code>mask_port</code>/<code>mask_host</code> из UCI → TOML. Shadowsocks <code>url</code> в upstream handler. <code>data_path</code> (gated ≥ 3.3.19).</li>
-      </ul>
-    </td>
-  </tr>
-  <tr>
-    <td valign="top"><b>3.3.26</b></td>
-    <td valign="top">
-      <b>Глобальная переработка диагностики, поддержка OpenWrt 25+ и укрепление жизненного цикла (Lifecycle)</b><br>
-      <ul>
-        <li><b>Новая информационная модель:</b> Старый бейдж <code>MODE</code> разделен на два точных индикатора: <b>TG PATH</b> (Direct-DC/ME/Fallback) и <b>EGRESS</b> (Direct/SOCKS5). Правая карточка динамически адаптируется под тип апстрима.</li>
-        <li><b>Консоль Runtime Info:</b> Добавлена кнопка для вывода удобочитаемой сводки о здоровье прокси, апстримах и трафике юзеров.</li>
-        <li><b>Трекинг уникальных IP:</b> Вкладка пользователей теперь парсит метрики уникальных IP из Prometheus (формат <code>● 14 IP 7/10</code>).</li>
-        <li><b>Укрепленный Init.d:</b> Атомарная генерация TOML (устраняет падения при hot-reload), <code>rc_procd</code> без гонки состояний, Graceful Shutdown (<code>SIGTERM</code> → <code>run_save_stats</code> → <code>SIGKILL</code>). Безопасное обнаружение PID бота.</li>
-        <li><b>Очистка конфигурации:</b> Удалены 8 фантомных параметров Middle-End, которые теперь настраиваются автоматически бинарником.</li>
-        <li><b>OpenWrt 25+ Compat:</b> Инъекция имени пользователя в DOM новой архитектуры LuCI. Исправлена верстка и цветовые пороги памяти.</li>
-      </ul>
-    </td>
-  </tr>
-  <tr>
-    <td valign="top"><b>3.3.16</b></td>
-    <td valign="top">
-      <b>Исправления безопасности и полировка UI</b><br>
-      <ul>
-        <li>Исправлен серверный механизм валидации CSRF токенов, ломавший сохранение на старых версиях OpenWrt.</li>
-        <li>Кнопки управления сервисом переведены в режим "тонких оберток", вызывающих напрямую <code>init.d</code> скрипт.</li>
-        <li>Добавлен визуальный статус <code>STARTING... / STOPPING...</code> с защитой от двойного клика.</li>
-        <li>Реорганизован порядок вкладок и добавлена выделенная панель кнопок для работы с CSV базой пользователей.</li>
-      </ul>
-    </td>
-  </tr>
-  <tr>
-    <td valign="top"><b>3.3.10</b></td>
-    <td valign="top">
-      <b>Переход на микросервисы и пакеты APK</b><br>
-      <ul>
-        <li>Полное разделение монолита на Headless Core, WebUI и Telemt Bot.</li>
-        <li>Интеграция nFPM для автоматической генерации современных <code>.apk</code> пакетов (для OpenWrt 25+).</li>
-        <li>Переход на высокоскоростной RAM Ring-Buffer для карантина сканеров.</li>
-        <li>Внедрение мягких зависимостей: WebUI корректно работает и предупреждает, если ядро не установлено.</li>
-      </ul>
-    </td>
-  </tr>
-  <tr>
-    <td valign="top"><b>3.2.1</b></td>
-    <td valign="top">
-      <b>Control API v1, Hot-Reload и Telegram Bot</b><br>
-      <ul>
-        <li>Внедрен <b>Control Plane HTTP API v1</b>. Добавление пользователей и изменение квот теперь происходит <i>на лету</i> (Zero-Downtime Hot-Reload).</li>
-        <li>Встроен легковесный <code>telemt_bot</code> для автономного управления роутером через Telegram (создание юзеров, графики нагрузки).</li>
-        <li>Порты разнесены аппаратно: <code>9092</code> для метрик Prometheus, <code>9091</code> для REST API.</li>
-      </ul>
-    </td>
-  </tr>
-  <tr>
-    <td valign="top"><b>pre-LTS 3.1.3</b></td>
-    <td valign="top">
-      <b>Поддержка PROXY protocol и Smart STUN Fallback</b><br>
-      <ul>
-        <li>Внедрена поддержка <code>mask_proxy_protocol</code> (v1/v2) для работы за HAProxy/Nginx.</li>
-        <li>Устранен баг с потерей статистики трафика при нажатии "Save & Apply". Установлен синхронный дамп метрик из RAM на диск перед перезапуском демона.</li>
-        <li>Добавлен умный фоллбек STUN для обхода строгих NAT мобильных провайдеров.</li>
-      </ul>
-    </td>
-  </tr>
-</table>
-
-<br>
+<p align="center">📋 История изменений: <a href="CHANGELOG.md">CHANGELOG.md</a> · <a href="https://github.com/Medvedolog/luci-app-telemt/releases">GitHub Releases</a></p>
 
 <h2 align="center">🖼️ Скриншоты интерфейса / Screenshots</h2>
 
