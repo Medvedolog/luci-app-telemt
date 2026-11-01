@@ -148,4 +148,7 @@ sh -n tools/bundle-core.sh
 [ "$(tail -n1 keys/telemt-core-release.pub | base64 -d | od -An -tx1 -j2 -N8 | tr -d ' \n')" = "$(sed -n 's/^CORE_KEY_ID="\(.*\)"/\1/p' tools/bundle-core.sh)" ] || fail 'keys/telemt-core-release.pub does not match CORE_KEY_ID in tools/bundle-core.sh'
 grep -q 'bundle-core' .github/workflows/ci.yml && [ -f .github/workflows/bundle-core.yml ]
 
+grep -q 'decoy_fasttrack_mode' "$WEB_MODEL"
+grep -q 'http_connection_capacity_action' "$WEB_MODEL"
+grep -q 'me_reinit_max_concurrency' "$USERS_LEGACY"
 echo 'source contracts ok'
