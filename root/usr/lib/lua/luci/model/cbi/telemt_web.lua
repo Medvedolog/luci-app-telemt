@@ -86,12 +86,14 @@ table.sort(users, function(a, b) return a.name < b.name end)
 
 local vhosts = {}
 local vhost_hosts = {}
+local vhost_paths = {}
 uci:foreach("telemt", "web_vhost", function(s)
     local name = trim(s.name or "")
     local host = trim(s.host or ""):lower()
     if name ~= "" then vhosts[#vhosts + 1] = name end
     if tostring(s.enabled or "1") ~= "0" and valid_vhost_name(name) and valid_fqdn(host) then
         vhost_hosts[name] = host
+        vhost_paths[name] = trim(s.base_path or "")
     end
 end)
 table.sort(vhosts)
@@ -107,10 +109,11 @@ uci:foreach("telemt", "web_profile", function(s)
     local vhost = trim(s.vhost or "")
     local mode = trim(s.secret_mode or "dd")
     local host = vhost_hosts[vhost]
+    local base_path = vhost_paths[vhost] or ""
     local ud = user ~= "" and uci:get_all("telemt", user) or nil
     local secret = ud and trim(ud.secret or "") or ""
 
-    if sid:match("^[A-Za-z0-9_]+$") and host and ud and ud[".type"] == "user" and
+    if base_path == "" and sid:match("^[A-Za-z0-9_]+$") and host and ud and ud[".type"] == "user" and
        #secret == 32 and secret:match("^[0-9A-Fa-f]+$") and (mode == "plain" or mode == "dd") then
         local wire_secret = (mode == "dd" and "dd" or "") .. secret:lower()
         web_links[#web_links + 1] = {
@@ -432,6 +435,27 @@ function vhp.validate(self, value, section)
     value = trim(value)
     if valid_public_addr(value) then return value end
     return nil, _("Use a concrete IPv4 or [IPv6] address on :443")
+end
+
+vhpath = vh:option(Value, "base_path", _("WEB base path"))
+vhpath.rmempty = true
+vhpath.placeholder = "telegram/web"
+vhpath.description = _("Optional exact WEB path prefix, without leading/trailing slash. Changing it invalidates existing WEB links. Path-bound links must be taken from Telemt startup output until the LuCI link encoder supports v2.")
+function vhpath.validate(self, value, section)
+    value = trim(value)
+    if value == "" then return "" end
+    if #value <= 128 and value:match("^[A-Za-z0-9][A-Za-z0-9_/-]*$") and
+        not value:find("//", 1, true) and
+        not value:match("/$") and
+        not value:match("/%-") then
+        for seg in value:gmatch("[^/]+") do
+            if not seg:match("^[A-Za-z0-9][A-Za-z0-9_-]*$") then
+                return nil, _("Invalid WEB base path segment")
+            end
+        end
+        return value
+    end
+    return nil, _("Use up to 128 ASCII bytes: segments A-Z, 0-9, _ or -, separated by single slashes")
 end
 
 vhd = vh:option(Value, "decoy_upstream", _("HTTP decoy"))

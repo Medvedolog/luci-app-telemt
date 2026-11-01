@@ -3,6 +3,13 @@
 <br>
 
 <blockquote>
+<p><b>🧪 Telemt 3.5.14 RC2 — ПОДГОТОВКА К ТЕСТОВОМУ ВЫПУСКУ / RC2 IN PREPARATION</b></p>
+<p><strong>Русский.</strong> Разрабатывается кандидат <code>3.5.14-r2</code> для OpenWrt 24.10 (IPK) и 25.12 (APK). <b>RC2 пока не опубликован и не проверен на физических маршрутизаторах.</b> Не устанавливайте сборки из произвольных CI-артефактов на основной роутер. Новое: опциональный <code>web.vhosts[].base_path</code> для WEB Proxy. Пустой путь сохраняет прежнее поведение. При непустом пути старые ссылки не работают: новый <code>tg://webproxy</code> необходимо получить из вывода Telemt после запуска; LuCI не создаёт поддельную ссылку старого формата. TLS-прокси должен передавать полный путь и исходный Host без переписывания.</p>
+<p><b>Просим тестеров:</b> сохранить <code>/etc/config/telemt</code>; отдельно проверить Direct, ME и WEB, смену WAN/DNS, корректность HTTPS/WebSocket, root и non-root <code>base_path</code>, обновление без потери пользователей, остановку и перезапуск через procd, а также сохранение существующих соединений при reload. Сообщите модель роутера, архитектуру, OpenWrt, установленные версии Core/LuCI, схему TLS-терминации, шаги воспроизведения и очищенный от секретов <code>logread -e telemt</code>. <a href="https://github.com/Medvedolog/luci-app-telemt/issues/29">Отчёты об испытаниях</a>.</p>
+<p><strong>English.</strong> RC2 package version <code>3.5.14-r2</code> is being prepared; <b>not released or hardware-validated yet</b>. Back up UCI and test Direct/ME/WEB, WAN recovery, vhost path routing and upgrade behavior. Preserve Host and full URI path through TLS termination; regenerate path-bound links from Telemt startup output. Report results with redacted logs in <a href="https://github.com/Medvedolog/luci-app-telemt/issues/29">test issue #29</a>.</p>
+</blockquote>
+
+<blockquote>
 <p><b>🧪 Telemt 3.5.14 RC1 — подписанный Pre-release / signed release candidate</b></p>
 <p>
 <strong>Русский.</strong> Опубликована тестовая версия <code>3.5.14-r1</code> для OpenWrt 24.10 (IPK) и 25.12 (APK).
