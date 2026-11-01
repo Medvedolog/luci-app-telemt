@@ -31,10 +31,10 @@ jobs:
           tag="$(jq -r '.tag' "$request")"
           sha="$(jq -r '.source_sha' "$request")"
           run="$(jq -r '.ci_run_id' "$request")"
-          test "$tag" = '3.5.14-rc1'
+          test "$tag" = '3.5.14-rc2'
           echo "$sha" | grep -Eq '^[0-9a-f]{40}$'
           echo "$run" | grep -Eq '^[0-9]{8,}$'
-          head_sha="$(gh api 'repos/Medvedolog/luci-app-telemt/git/ref/heads/dev/telemt-luci-3.5.14-rc-prep' --jq '.object.sha')"
+          head_sha="$(gh api 'repos/Medvedolog/luci-app-telemt/git/ref/heads/feature/telemt-3.5.14-rc2-web-path' --jq '.object.sha')"
           test "$head_sha" = "$sha" || {
             echo 'RC branch advanced; request must pin current tested head' >&2
             exit 1
@@ -69,7 +69,7 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          ref: dev/telemt-luci-3.5.14-rc-prep
+          ref: feature/telemt-3.5.14-rc2-web-path
           path: rc-src
           persist-credentials: false
 
@@ -82,7 +82,7 @@ jobs:
           test "$(cat rc-src/version.txt)" = '3.5.14'
           mkdir -p rc-src/dist
           gh run download "$RC_RUN_ID" --repo "$GITHUB_REPOSITORY" --name owfeed-packages --dir rc-src/dist
-          test "$(cat rc-src/dist/VERSION)" = '3.5.14-r1'
+          test "$(cat rc-src/dist/VERSION)" = '3.5.14-r2'
           test "$(find rc-src/dist -type f \( -name '*.apk' -o -name '*.ipk' \) | wc -l)" -eq 2
 
       - uses: owfeed/owfeed/setup@v0.5.1
@@ -122,11 +122,11 @@ jobs:
         run: |
           set -euo pipefail
           cat > "$RUNNER_TEMP/rc-notes.md" <<'NOTES'
-          ## Telemt 3.5.14 RC1 — for testers only
+          ## Telemt 3.5.14 RC2 — for testers only
 
           This is a signed OpenWrt release candidate, **not a stable build**.
           Packages: OpenWrt 24.10 (IPK), 25.12 (APK).
-          Telemt 3.5.14 / package version 3.5.14-r1.
+          Telemt 3.5.14 / package version 3.5.14-r2.
 
           Automated checks include package install and UCI upgrade preservation,
           runtime TOML/procd Direct+ME+WEB checks, and paired Core/LuCI rendering.
@@ -140,7 +140,7 @@ jobs:
           assets=(dist/*.apk dist/*.ipk dist/*.sig dist/manifest.txt)
           gh release create "$RC_TAG" "${assets[@]}" \
             --repo "$GITHUB_REPOSITORY" --verify-tag --draft --prerelease --latest=false \
-            --title "Telemt 3.5.14 RC1 (OpenWrt test build)" \
+            --title "Telemt 3.5.14 RC2 (OpenWrt test build)" \
             --notes-file "$RUNNER_TEMP/rc-notes.md"
           gh release edit "$RC_TAG" --repo "$GITHUB_REPOSITORY" \
             --draft=false --prerelease --latest=false
