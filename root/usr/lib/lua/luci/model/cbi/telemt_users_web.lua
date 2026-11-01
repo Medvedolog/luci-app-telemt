@@ -21,7 +21,7 @@ local function build_web_data()
         local name = tostring(s.name or "")
         local host = tostring(s.host or ""):lower()
         if name ~= "" and host ~= "" and tostring(s.enabled or "1") ~= "0" then
-            vhosts[name] = host
+            vhosts[name] = {host = host, base_path = tostring(s.base_path or "")}
         end
     end)
 
@@ -36,13 +36,14 @@ local function build_web_data()
         local vhost = tostring(p.vhost or "")
         local mode = tostring(p.secret_mode or "dd")
         local enabled = tostring(p.enabled or "1") ~= "0"
-        local host = vhosts[vhost]
+        local binding = vhosts[vhost]
+        local host = binding and binding.host or nil
         local ud = uci:get_all("telemt", user)
         local secret = ud and tostring(ud.secret or "") or ""
         local user_enabled = ud and tostring(ud.enabled or "1") ~= "0"
         local link = nil
 
-        if enabled and user_enabled and host and #secret == 32 and secret:match("^[0-9A-Fa-f]+$") and (mode == "plain" or mode == "dd") then
+        if enabled and user_enabled and host and binding.base_path == "" and #secret == 32 and secret:match("^[0-9A-Fa-f]+$") and (mode == "plain" or mode == "dd") then
             link = "tg://webproxy?server=" .. host .. "&secret=" .. (mode == "dd" and "dd" or "") .. secret:lower()
         end
 
