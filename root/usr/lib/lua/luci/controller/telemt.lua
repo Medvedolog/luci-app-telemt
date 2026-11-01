@@ -128,6 +128,12 @@ function web_qr()
     local host = nil
     uci:foreach("telemt", "web_vhost", function(s)
         if not host and tostring(s.name or "") == vhost_name then
+            if tostring(s.base_path or "") ~= "" then
+                http.status(409, "Path-bound link")
+                http.prepare_content("text/plain")
+                http.write("WEB base_path requires the v2 link from Telemt startup output.\\n")
+                return
+            end
             local h = tostring(s.host or ""):lower()
             if h:match("^[A-Za-z0-9][A-Za-z0-9%.%-]*[A-Za-z0-9]$") and h:find("%.") then host = h end
         end
