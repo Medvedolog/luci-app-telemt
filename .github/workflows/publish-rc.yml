@@ -128,10 +128,25 @@ jobs:
           Packages: OpenWrt 24.10 (IPK), 25.12 (APK).
           Telemt 3.5.14 / package version 3.5.14-r2.
 
-          Automated checks include package install and UCI upgrade preservation,
-          runtime TOML/procd Direct+ME+WEB checks, and paired Core/LuCI rendering.
-          **Physical routers and actual Telegram Direct/ME/WEB connectivity remain to be tested.**
-          Back up /etc/config/telemt before installing. Do not expose user secrets in reports.
+          **Экспериментальная сборка — не устанавливайте на основной маршрутизатор.**
+          Новый параметр WEB vhost `base_path` опционален: пустое значение сохраняет
+          прежнее поведение. Для непустого пути используйте новую v2-ссылку,
+          напечатанную Telemt при запуске: прежний генератор ссылок и QR не подходит.
+          NGINX/HAProxy должен сохранять Host и полный путь без переписывания.
+
+          **Просьба к тестерам:** перед установкой сохраните /etc/config/telemt.
+          Проверьте установку/обновление Core + LuCI, сохранение пользователей,
+          Direct, ME и WEB, WEB root/base_path, WEB через NGINX/HAProxy,
+          перезапуск и остановку procd, переходы WAN down/up, работу DNS,
+          нагрузку CPU/RAM и восстановление соединений после reload.
+          Приложите модель роутера, архитектуру, версию OpenWrt и пакетов,
+          шаги воспроизведения и очищенный от секретов вывод logread -e telemt.
+          Не публикуйте токены, IP клиентов, пароли и пользовательские secret.
+
+          This signed candidate is **not stable** and has not been accepted on
+          physical routers. Preserve WEB Host and full path through TLS termination.
+          Path-bound links require v2 output from Telemt startup. Test and report
+          Direct/ME/WEB, UCI upgrade, reload, WAN/DNS recovery and resource usage.
 
           Test reports: https://github.com/Medvedolog/luci-app-telemt/issues/29
           NOTES
