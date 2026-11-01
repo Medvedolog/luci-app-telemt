@@ -28,6 +28,7 @@ v="$(tr -d '[:space:]' < version.txt)"
 m="$(sed -n 's/^PKG_VERSION:=//p' Makefile | head -n1)"
 [ "$v" = "$m" ] || { echo "version.txt ($v) != Makefile PKG_VERSION ($m)" >&2; exit 1; }
 echo "version ok: $v"
+"$LUAC" tools/test-web-links.lua
 
 # --- Menu, ownership and WEB payload contracts -------------------------------
 MENU=root/usr/share/luci/menu.d/luci-app-telemt.json
