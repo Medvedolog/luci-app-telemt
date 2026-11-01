@@ -3,6 +3,13 @@
 <br>
 
 <blockquote>
+<p><b>🧪 Telemt 3.5.14 RC3 — кандидат на тестовый выпуск / release candidate in preparation</b></p>
+<p>Core + LuCI версии <code>3.5.14-r3</code> для OpenWrt 24.10/IPK и 25.12/APK. Предусмотрены WEB v2-ссылки и QR с <code>base_path</code>, расширенная настройка WEB/ME и экспериментальное управление WEB <code>pause/drain/resume</code>. <b>RC3 ещё не опубликован: установка на рабочие маршрутизаторы не рекомендуется.</b> Сохраните <code>/etc/config/telemt</code> и протестируйте Direct/ME/WEB, WAN/DNS recovery, обновление с RC2, поддержку TLS frontend и управление lifecycle.</p>
+<p>English: RC3 is being validated, not yet published. WEB v2 links, optional advanced tuning and experimental operator lifecycle controls require real-router acceptance. Back up UCI; avoid production installations. Report logs with secrets redacted.</p>
+<p><a href="https://github.com/Medvedolog/luci-app-telemt/issues/29">Отчёты тестеров / Test reports</a>.</p>
+</blockquote>
+
+<blockquote>
 <p><b>🧪 Telemt 3.5.14 RC2 — тестовый Pre-release / test release candidate</b></p>
 <p><strong>Русский.</strong> Представлен тестовый кандидат <code>3.5.14-r2</code> для OpenWrt 24.10 (IPK) и 25.12 (APK). <b>RC2 предназначен только для тестов; физические роутеры ещё не прошли приёмочные испытания.</b> Не устанавливайте сборки из произвольных CI-артефактов на основной роутер. Новое: опциональный <code>web.vhosts[].base_path</code> для WEB Proxy. Пустой путь сохраняет прежнее поведение. При непустом пути старые ссылки не работают: новый <code>tg://webproxy</code> необходимо получить из вывода Telemt после запуска; LuCI не создаёт поддельную ссылку старого формата. TLS-прокси должен передавать полный путь и исходный Host без переписывания.</p>
 <p><b>Просим тестеров:</b> сохранить <code>/etc/config/telemt</code>; отдельно проверить Direct, ME и WEB, смену WAN/DNS, корректность HTTPS/WebSocket, root и non-root <code>base_path</code>, обновление без потери пользователей, остановку и перезапуск через procd, а также сохранение существующих соединений при reload. Сообщите модель роутера, архитектуру, OpenWrt, установленные версии Core/LuCI, схему TLS-терминации, шаги воспроизведения и очищенный от секретов <code>logread -e telemt</code>. <a href="https://github.com/Medvedolog/luci-app-telemt/issues/29">Отчёты об испытаниях</a>.</p>
