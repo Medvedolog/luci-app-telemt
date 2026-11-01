@@ -656,4 +656,43 @@ function telemtWebFrontendAction(act, destructive) {
 ]], label_html, label_html, label_js, label_js, url)
 end
 
+-- Operator WEB lifecycle: runtime-only actions, never restart the daemon.
+local lifecycle_section = m:section(SimpleSection)
+lifecycle_section.title = _("WEB runtime lifecycle (experimental)")
+lifecycle_section.description = _("Telemt 3.5.14+. Actions affect WEB admission only. Drain closes remaining WEB sessions after a 30-second deadline. Requires curl and a reachable, authorized local Control API.")
+local lifecycle_view = lifecycle_section:option(DummyValue, "_web_lifecycle")
+lifecycle_view.rawhtml = true
+function lifecycle_view.cfgvalue()
+    local url = js_quote(dsp.build_url("admin", "services", "telemt", "web_lifecycle"))
+    return string.format([[
+<div style="display:flex;gap:7px;flex-wrap:wrap">
+<button type="button" class="cbi-button" onclick="return telemtWebLifecycle('status')">Status</button>
+<button type="button" class="cbi-button" onclick="return telemtWebLifecycle('pause')">Pause admission</button>
+<button type="button" class="cbi-button" onclick="return telemtWebLifecycle('drain')">Drain (30s)</button>
+<button type="button" class="cbi-button" onclick="return telemtWebLifecycle('resume')">Resume admission</button>
+</div>
+<pre id="telemt-web-lifecycle-output" style="white-space:pre-wrap;margin-top:8px" aria-live="polite"></pre>
+<script type="text/javascript">
+function telemtWebLifecycle(action) {
+  if (action !== 'status' && !window.confirm(
+    action === 'drain' ? 'Drain WEB sessions and force close any remaining after 30 seconds?' :
+    (action === 'pause' ? 'Pause new WEB sessions?' : 'Resume WEB admission?'))) return false;
+  var out = document.getElementById('telemt-web-lifecycle-output');
+  out.textContent = 'Requesting ' + action + '...';
+  var x = new XMLHttpRequest();
+  x.open('POST', '%s', true);
+  x.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+  x.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+  x.onreadystatechange = function() {
+    if (x.readyState === 4) out.textContent =
+      (x.status >= 200 && x.status < 300 ? '' : 'HTTP ' + x.status + ': ') +
+      (x.responseText || 'No response');
+  };
+  x.send('action=' + encodeURIComponent(action) + (action === 'drain' ? '&confirm=drain' : ''));
+  return false;
+}
+</script>
+]], url)
+end
+
 return m
