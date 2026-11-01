@@ -85,6 +85,7 @@ end)
 table.sort(users, function(a, b) return a.name < b.name end)
 
 local vhosts = {}
+local web_link = require "luci.model.telemt_web_link"
 local vhost_hosts = {}
 local vhost_paths = {}
 uci:foreach("telemt", "web_vhost", function(s)
@@ -113,9 +114,9 @@ uci:foreach("telemt", "web_profile", function(s)
     local ud = user ~= "" and uci:get_all("telemt", user) or nil
     local secret = ud and trim(ud.secret or "") or ""
 
-    if base_path == "" and sid:match("^[A-Za-z0-9_]+$") and host and ud and ud[".type"] == "user" and
+    if sid:match("^[A-Za-z0-9_]+$") and host and ud and ud[".type"] == "user" and
        #secret == 32 and secret:match("^[0-9A-Fa-f]+$") and (mode == "plain" or mode == "dd") then
-        local wire_secret = (mode == "dd" and "dd" or "") .. secret:lower()
+        local generated_link = web_link.format(host, base_path, secret, mode)
         web_links[#web_links + 1] = {
             section = sid,
             user = user,
@@ -123,7 +124,7 @@ uci:foreach("telemt", "web_profile", function(s)
             host = host,
             mode = mode,
             active = tostring(ud.enabled or "1") ~= "0",
-            link = "tg://webproxy?server=" .. host .. "&secret=" .. wire_secret
+            link = generated_link
         }
     end
 end)
