@@ -18,7 +18,7 @@ PKG_LICENSE:=GPL-2.0-or-later
 LUCI_TITLE:=LuCI WebUI for Telemt MTProxy (WEB Proxy, multi-user, diagnostics)
 # The telemt core owns /etc/config/telemt, so it is deliberately not a hard
 # dependency: the UI stays installable and repairable when feeds are unreachable.
-LUCI_DEPENDS:=+luci-base +luci-compat +qrencode +ca-bundle
+LUCI_DEPENDS:=+luci-base +luci-compat +qrencode +ca-bundle +curl
 LUCI_PKGARCH:=all
 
 include $(TOPDIR)/feeds/luci/luci.mk
