@@ -3,10 +3,11 @@
 <br>
 
 <blockquote>
-<p><b>🧪 Telemt 3.5.14 RC3 — кандидат на тестовый выпуск / release candidate in preparation</b></p>
-<p>Core + LuCI версии <code>3.5.14-r3</code> для OpenWrt 24.10/IPK и 25.12/APK. Предусмотрены WEB v2-ссылки и QR с <code>base_path</code>, расширенная настройка WEB/ME и экспериментальное управление WEB <code>pause/drain/resume</code>. <b>RC3 ещё не опубликован: установка на рабочие маршрутизаторы не рекомендуется.</b> Сохраните <code>/etc/config/telemt</code> и протестируйте Direct/ME/WEB, WAN/DNS recovery, обновление с RC2, поддержку TLS frontend и управление lifecycle.</p>
-<p>English: RC3 is being validated, not yet published. WEB v2 links, optional advanced tuning and experimental operator lifecycle controls require real-router acceptance. Back up UCI; avoid production installations. Report logs with secrets redacted.</p>
+<p><b>🧪 Telemt 3.5.14 RC3 — подписанный Pre-release / signed test release</b></p>
+<p>Core + LuCI версии <code>3.5.14-r3</code> для OpenWrt 24.10/IPK и 25.12/APK. Предусмотрены WEB v2-ссылки и QR с <code>base_path</code>, расширенная настройка WEB/ME и экспериментальное управление WEB <code>pause/drain/resume</code>. <b>RC3 опубликован как подписанный Pre-release, но пока не прошёл аппаратную приёмку; установка на основной маршрутизатор не рекомендуется.</b> Сохраните <code>/etc/config/telemt</code> и протестируйте Direct/ME/WEB, WAN/DNS recovery, обновление с RC2, поддержку TLS frontend и управление lifecycle.</p>
+<p>English: Signed RC3 IPK/APK packages are published as GitHub Pre-releases, not Stable. WEB v2 links, optional advanced tuning and experimental operator lifecycle controls require real-router acceptance. Back up UCI; avoid production installations. Report logs with secrets redacted.</p>
 <p><a href="https://github.com/Medvedolog/luci-app-telemt/issues/29">Отчёты тестеров / Test reports</a>.</p>
+<p><a href="https://github.com/Medvedolog/telemt_owrt/releases/tag/3.5.14-rc3"><b>Скачать Core RC3 / Core packages</b></a> · <a href="https://github.com/Medvedolog/luci-app-telemt/releases/tag/3.5.14-rc3"><b>Скачать LuCI RC3 / LuCI packages</b></a>.</p>
 </blockquote>
 
 <blockquote>
