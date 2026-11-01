@@ -8,7 +8,7 @@ assert(link.format("proxy.example.com", "", secret, "dd") ==
     "tg://webproxy?server=proxy.example.com&secret=dd" .. secret)
 local plain = link.format("proxy.example.com", "MixedCase/path", secret, "plain")
 assert(plain and plain:find("server=proxy.example.com%2FMixedCase%2Fpath", 1, true))
-assert(plain:find("secret=cAARIjNEVWZ3iJmqu8zd7_8", 1, true))
+assert(plain:find("secret=cAARIjNEVWZ3iJmqu8zd7v8", 1, true))
 local dd = link.format("proxy.example.com", "p", secret, "dd")
 assert(dd and dd:find("secret=cN0AESIzRFVmd4iZqrvM3e7_", 1, true))
 assert(link.format("proxy.example.com", "/bad", secret, "dd") == nil)
