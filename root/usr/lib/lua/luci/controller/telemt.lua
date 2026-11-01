@@ -126,23 +126,14 @@ function web_qr()
     end
 
     local host = nil
-    local path_bound = false
+    local base_path = ""
     uci:foreach("telemt", "web_vhost", function(s)
         if not host and tostring(s.name or "") == vhost_name then
-            if tostring(s.base_path or "") ~= "" then
-                path_bound = true
-                return
-            end
+            base_path = tostring(s.base_path or "")
             local h = tostring(s.host or ""):lower()
             if h:match("^[A-Za-z0-9][A-Za-z0-9%.%-]*[A-Za-z0-9]$") and h:find("%.") then host = h end
         end
     end)
-    if path_bound then
-        http.status(409, "Path-bound WEB link")
-        http.prepare_content("text/plain")
-        http.write("Use the v2 link emitted by Telemt at startup; legacy QR is unavailable.\\n")
-        return
-    end
     if not host then
         http.status(409, "Invalid VHost")
         http.prepare_content("text/plain")
@@ -157,8 +148,13 @@ function web_qr()
         return
     end
 
-    local web_secret = (mode == "dd" and "dd" or "") .. secret:lower()
-    local link = "tg://webproxy?server=" .. host .. "&secret=" .. web_secret
+    local link = require("luci.model.telemt_web_link").format(host, base_path, secret, mode)
+    if not link then
+        http.status(409, "Invalid WEB link")
+        http.prepare_content("text/plain")
+        http.write("WEB link parameters are invalid\n")
+        return
+    end
     -- host and secret are strictly validated above; %q additionally quotes the
     -- complete fixed-format argument for the shell invoked by luci.sys.exec().
     local png = sys.exec(string.format("qrencode -t PNG -o - %q 2>/dev/null", link)) or ""
