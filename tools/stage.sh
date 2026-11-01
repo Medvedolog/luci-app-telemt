@@ -51,6 +51,7 @@ for f in \
     usr/lib/lua/luci/model/cbi/telemt_memory_budget.lua \
     usr/lib/lua/luci/model/cbi/telemt_users_web.lua \
     usr/lib/lua/luci/model/cbi/telemt_web.lua \
+    usr/lib/lua/luci/model/telemt_web_link.lua \
     usr/share/luci/menu.d/luci-app-telemt.json \
     usr/share/rpcd/acl.d/luci-app-telemt.json
 do
