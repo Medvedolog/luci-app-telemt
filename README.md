@@ -31,9 +31,9 @@
       <br><br>
       <b>Требования:</b>
       <ul><li><b>Сеть:</b> Белый уличный статический или динамический IP адрес
-        <li><b>ОС:</b> OpenWrt 21.02 — 25.xx (полная поддержка VDOM и APK-пакетов)</li>
+        <li><b>ОС:</b> Подписанные пакеты RC1: OpenWrt 24.10 (IPK) и 25.12 (APK)</li>
         <li><b>Зависимости:</b> <code>luci-base</code>, <code>luci-compat</code>, <code>ca-bundle</code>, <code>qrencode</code>, <code>curl</code> (для QR-кодов)</li>
-        <li><b>Движок:</b> бинарный файл <code>telemt</code> <b>версии 3.5.14 (RC3)</b> (<a href="https://github.com/Medvedolog/telemt_owrt/releases">Скачать telemt ядро</a>).</li>
+        <li><b>Движок:</b> бинарный файл <code>telemt</code> <b>версии 3.5.16 (RC1)</b> (<a href="https://github.com/Medvedolog/telemt_owrt/releases">Скачать telemt ядро</a>).</li>
       </ul>
       <b>Ключевые возможности:</b>
       <ul>
@@ -66,9 +66,9 @@
       <br><br>
       <b>Requirements:</b>
       <ul>
-        <li><b>OS:</b> OpenWrt 21.02 — 25.xx (full VDOM and APK package support)</li>
+        <li><b>OS:</b> Signed RC1 packages: OpenWrt 24.10 (IPK) and 25.12 (APK)</li>
         <li><b>Dependencies:</b> <code>luci-base</code>, <code>luci-compat</code>, <code>ca-bundle</code>, <code>qrencode</code>, <code>curl</code> (for QR generation)</li>
-        <li><b>Engine:</b> <code>telemt</code> binary <b>version 3.5.14 (RC3)</b> (<a href="https://github.com/Medvedolog/telemt_owrt/releases">Download core</a>).</li>
+        <li><b>Engine:</b> <code>telemt</code> binary <b>version 3.5.16 (RC1)</b> (<a href="https://github.com/Medvedolog/telemt_owrt/releases">Download core</a>).</li>
       </ul>
       <b>Key Features:</b>
       <ul>
@@ -93,16 +93,16 @@
 
 В связи с переходом на микросервисную архитектуру, сначала необходимо установить ядро (`telemt_owrt`), а затем данный веб-интерфейс (`luci-app-telemt`).
 
-**Для OpenWrt 21.02 — 24.10 (через opkg):**
+**Для OpenWrt 24.10 (через opkg):**
 ```bash
 opkg update
-opkg install luci-app-telemt_3.5.16-r1_all.ipk
+opkg install ./luci-app-telemt_3.5.16-r1_all.ipk
 ```
 
-**Для OpenWrt 25.xx и новее (через apk):**
+**Для OpenWrt 25.12 (через apk):**
 ```bash
 apk update
-apk add --allow-untrusted luci-app-telemt-3.5.16-r1.apk
+apk add --allow-untrusted ./luci-app-telemt-3.5.16-r1.apk
 ```
 
 <br>
