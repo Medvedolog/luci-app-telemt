@@ -9,8 +9,8 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-telemt
-PKG_VERSION:=3.5.14
-PKG_RELEASE:=3
+PKG_VERSION:=3.5.16
+PKG_RELEASE:=1
 
 PKG_MAINTAINER:=Medvedolog
 PKG_LICENSE:=GPL-2.0-or-later
