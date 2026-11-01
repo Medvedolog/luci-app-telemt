@@ -126,18 +126,23 @@ function web_qr()
     end
 
     local host = nil
+    local path_bound = false
     uci:foreach("telemt", "web_vhost", function(s)
         if not host and tostring(s.name or "") == vhost_name then
             if tostring(s.base_path or "") ~= "" then
-                http.status(409, "Path-bound link")
-                http.prepare_content("text/plain")
-                http.write("WEB base_path requires the v2 link from Telemt startup output.\\n")
+                path_bound = true
                 return
             end
             local h = tostring(s.host or ""):lower()
             if h:match("^[A-Za-z0-9][A-Za-z0-9%.%-]*[A-Za-z0-9]$") and h:find("%.") then host = h end
         end
     end)
+    if path_bound then
+        http.status(409, "Path-bound WEB link")
+        http.prepare_content("text/plain")
+        http.write("Use the v2 link emitted by Telemt at startup; legacy QR is unavailable.\\n")
+        return
+    end
     if not host then
         http.status(409, "Invalid VHost")
         http.prepare_content("text/plain")
