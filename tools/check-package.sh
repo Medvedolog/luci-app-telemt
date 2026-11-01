@@ -42,7 +42,7 @@ for s in postinst prerm postrm; do
 done
 
 deps=$(sed -n 's/^Depends:[[:space:]]*//p' "$work/control/control" | tr ',' '\n' | sed 's/[[:space:]]//g;s/[[:space:](].*$//' | sed '/^$/d' | sort -u)
-expected=$(printf '%s\n' libc luci-base luci-compat qrencode ca-bundle | sort -u)
+expected=$(printf '%s\n' libc luci-base luci-compat qrencode ca-bundle curl | sort -u)
 [ "$deps" = "$expected" ] || {
     echo "dependency mismatch" >&2
     echo "expected:" >&2; printf '%s\n' "$expected" >&2
