@@ -10,7 +10,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-telemt
 PKG_VERSION:=3.5.14
-PKG_RELEASE:=2
+PKG_RELEASE:=3
 
 PKG_MAINTAINER:=Medvedolog
 PKG_LICENSE:=GPL-2.0-or-later
@@ -18,7 +18,7 @@ PKG_LICENSE:=GPL-2.0-or-later
 LUCI_TITLE:=LuCI WebUI for Telemt MTProxy (WEB Proxy, multi-user, diagnostics)
 # The telemt core owns /etc/config/telemt, so it is deliberately not a hard
 # dependency: the UI stays installable and repairable when feeds are unreachable.
-LUCI_DEPENDS:=+luci-base +luci-compat +qrencode +ca-bundle
+LUCI_DEPENDS:=+luci-base +luci-compat +qrencode +ca-bundle +curl
 LUCI_PKGARCH:=all
 
 include $(TOPDIR)/feeds/luci/luci.mk
