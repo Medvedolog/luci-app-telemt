@@ -795,6 +795,12 @@ local meps = s:taboption("advanced", Value, "me_pool_size",
     "ME Pool Size" .. tip("Desired number of concurrent ME writers in pool. Default: 16.")); meps.datatype = "uinteger"; meps
     :depends("use_middle_proxy", "1")
 
+local me_reinit_cap = s:taboption("advanced", Value, "me_reinit_max_concurrency",
+    "ME Reinit Max Concurrency" .. tip("Telemt 3.5.14+: 1–8 parallel warmups, default 2. Effective concurrency is 1 while singleflight remains enabled."))
+me_reinit_cap.datatype = "range(1,8)"
+me_reinit_cap.default = "2"
+me_reinit_cap:depends("use_middle_proxy", "1")
+
 local h_me_adv = s:taboption("advanced", DummyValue, "_head_me_adv")
 h_me_adv.rawhtml = true
 h_me_adv.default =
