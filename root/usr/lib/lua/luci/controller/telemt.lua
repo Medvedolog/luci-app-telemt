@@ -183,7 +183,7 @@ function web_lifecycle()
         http.status(code)
         http.header("Cache-Control", "no-store")
         http.prepare_content("text/plain")
-        http.write(text .. "\\n")
+        http.write(text .. "\n")
     end
     if http.getenv("REQUEST_METHOD") ~= "POST" or
        http.getenv("HTTP_X_REQUESTED_WITH") ~= "XMLHttpRequest" then
@@ -224,7 +224,7 @@ function web_lifecycle()
         " -w '\\nHTTP_STATUS:%{http_code}' 2>/dev/null"
     local raw = sys.exec(cmd) or ""
     local code = tonumber(raw:match("HTTP_STATUS:(%d+)%s*$")) or 0
-    raw = raw:gsub("\\nHTTP_STATUS:%d+%s*$", "")
+    raw = raw:gsub("HTTP_STATUS:%d+%s*$", "")
     if code < 200 or code >= 300 then
         return response(409, "Telemt rejected " .. action .. " (HTTP " .. code .. "): " .. raw:sub(1, 512))
     end
